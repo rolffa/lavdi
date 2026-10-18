@@ -11,6 +11,7 @@ class AdminMenu extends StatelessWidget {
     ('Artister', '/admin/artister'),
     ('Kalender', '/admin/kalender'),
     ('Manuelt tilbud', '/admin/tilbud'),
+    ('Konto', '/admin/konto'),
   ];
 
   @override
@@ -62,5 +63,6 @@ String _currentItem(String path) {
   if (path.startsWith('/admin/artister')) return 'Artister';
   if (path.startsWith('/admin/kalender')) return 'Kalender';
   if (path.startsWith('/admin/tilbud')) return 'Manuelt tilbud';
+  if (path.startsWith('/admin/konto')) return 'Konto';
   return 'Forespørsler';
 }

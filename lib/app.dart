@@ -19,22 +19,27 @@ class PortalApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PortalScope(
-      repository: repository,
-      demoMode: demoMode,
-      child: MaterialApp.router(
-        title: Brand.name,
-        debugShowCheckedModeBanner: false,
-        theme: buildTheme(),
-        locale: const Locale('nb'),
-        supportedLocales: const [Locale('nb'), Locale('en')],
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        routerConfig: appRouter,
-      ),
+    return ListenableBuilder(
+      listenable: repository,
+      builder: (context, _) {
+        return PortalScope(
+          repository: repository,
+          demoMode: demoMode,
+          child: MaterialApp.router(
+            title: Brand.name,
+            debugShowCheckedModeBanner: false,
+            theme: buildTheme(),
+            locale: const Locale('nb'),
+            supportedLocales: const [Locale('nb'), Locale('en')],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            routerConfig: appRouter,
+          ),
+        );
+      },
     );
   }
 }

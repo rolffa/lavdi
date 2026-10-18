@@ -29,3 +29,7 @@ flutter:
     - assets/brand/logo2.png
     - assets/brand/Bakgrunn3.jpeg
     - assets/artist/
+  fonts:
+    - family: Grooby
+      fonts:
+        - asset: public/fonts/grooby-demo.regular.ttf

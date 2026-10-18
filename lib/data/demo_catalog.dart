@@ -4,6 +4,7 @@ abstract final class DemoCatalog {
   static const productionToken = 'amundsen-demo-linn';
   static const productionBookingId = 'c3000000-0000-4000-8000-000000000001';
   static const adminUsername = 'admin';
+  static const adminEmail = 'admin@lavdi.no';
   static const adminPassword = 'lavdi';
   static const artistEmail = 'rolffa@lavdi.no';
   static const artistPassword = 'lavdi';
@@ -15,13 +16,18 @@ abstract final class DemoCatalog {
   static const kevinId = 'a1000000-0000-4000-8000-000000000007';
   static const henningId = 'a1000000-0000-4000-8000-000000000008';
 
+  /// Fra [content/bios/eiga.txt] (konvertert fra eiga.rtf).
+  static const eigaBio =
+      'EiGA er en samisk joike- og elektronika-duo som springer ut fra Máze i Sápmi. Duoen består av joikerne og artistene Johan Ivvar Gaup og Piera Eira. Sistnevnte vant sangdelen i Sámi Grand Prix i 2025 sammen med MÁIJÁ med låten «Dálkkiid Čađa».\n\n'
+      'EiGA er kjent for å forene tradisjonell joik med moderne EDM- og elektronika-elementer, noe som skaper et unikt og energisk lydbilde som har fått stor oppmerksomhet på festivaler og arrangementer. Duoen har gitt ut utgivelser som låten «Duinna» (gjestet av Elin Oskal) og singelen «Muittašan» (gjestet av MÁIJÁ).\n\n'
+      'Eiga passer like godt til klubbscener som til store festivaler.';
+
   static const artists = <Artist>[
     Artist(
       id: fjordId,
       name: 'EiGA',
       tagline: 'Duo',
-      bio:
-          'EiGA er en duo som bookes til klubber, kulturhus og festivaler.\n\nSett lengde og rider avklares i forespørselen.',
+      bio: eigaBio,
       imageUrl: 'assets/artist/eiga_profile_1.jpeg',
       videoUrl:
           'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',
@@ -32,8 +38,7 @@ abstract final class DemoCatalog {
       id: harborId,
       name: 'Felgen Orkester',
       tagline: 'Band',
-      bio:
-          'Felgen Orkester bookes til klubber, kulturhus og festivaler.\n\nSett lengde og rider avklares i forespørselen.',
+      bio: 'Felgen Orkester bookes til klubber, kulturhus og festivaler.',
       imageUrl: 'assets/artist/felgen_profile_1.jpeg',
       videoUrl:
           'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',
@@ -44,8 +49,7 @@ abstract final class DemoCatalog {
       id: linnId,
       name: 'Rolffa',
       tagline: 'Band',
-      bio:
-          'Rolffa bookes til klubber, kulturhus og festivaler.\n\nSett lengde og rider avklares i forespørselen.',
+      bio: 'Rolffa bookes til klubber, kulturhus og festivaler.',
       imageUrl: 'assets/artist/rolffa_profile_1.jpg',
       videoUrl:
           'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',
@@ -56,8 +60,7 @@ abstract final class DemoCatalog {
       id: miraId,
       name: 'R & GM',
       tagline: 'Duo',
-      bio:
-          'R & GM er en duo som bookes til klubber, kulturhus og festivaler.\n\nSett lengde og rider avklares i forespørselen.',
+      bio: 'R & GM er en duo som bookes til klubber, kulturhus og festivaler.',
       imageUrl: 'assets/artist/roggm_profile_1.jpeg',
       videoUrl:
           'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',
@@ -68,8 +71,7 @@ abstract final class DemoCatalog {
       id: kevinId,
       name: 'Kevin Boine',
       tagline: 'Solo',
-      bio:
-          'Kevin Boine bookes til klubber, kulturhus og festivaler.\n\nSett lengde og rider avklares i forespørselen.',
+      bio: 'Kevin Boine bookes til klubber, kulturhus og festivaler.',
       imageUrl: 'assets/artist/kevin_profile_1.jpeg',
       videoUrl:
           'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',
@@ -80,8 +82,7 @@ abstract final class DemoCatalog {
       id: henningId,
       name: 'Henning Anti',
       tagline: 'Solo',
-      bio:
-          'Henning Anti bookes til klubber, kulturhus og festivaler.\n\nSett lengde og rider avklares i forespørselen.',
+      bio: 'Henning Anti bookes til klubber, kulturhus og festivaler.',
       imageUrl: 'assets/artist/henning_profile_1.jpeg',
       videoUrl:
           'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',

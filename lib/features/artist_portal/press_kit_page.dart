@@ -144,21 +144,16 @@ class _PressKitPageState extends State<PressKitPage> {
                               ),
                             ),
                             const SizedBox(height: 20),
-                            Text(
-                              'Bio',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: AppColors.onImage,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
                             InkSurface(
                               child: TextField(
                                 controller: _bio,
                                 minLines: 6,
                                 maxLines: 14,
-                                decoration: const InputDecoration(
-                                  hintText: 'Skriv den offisielle biografien',
-                                  border: OutlineInputBorder(),
+                                style: portalFieldStyle,
+                                cursorColor: AppColors.ink,
+                                decoration: fieldDecoration(
+                                  label: 'Skriv den offisielle biografien',
+                                  alignLabelWithHint: true,
                                 ),
                               ),
                             ),

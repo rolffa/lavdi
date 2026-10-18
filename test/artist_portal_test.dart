@@ -6,6 +6,8 @@ import 'package:amundsen_booking/data/demo_portal_repository.dart';
 import 'package:amundsen_booking/models/repertoire.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'demo_fixtures.dart';
+
 void main() {
   final clock = DateTime(2026, 10, 11);
 
@@ -58,6 +60,21 @@ void main() {
       throwsA(isA<Exception>()),
     );
 
+    final yesterdayGig = await seedConfirmedGig(
+      repository,
+      clock: () => clock,
+      date: DateTime(2026, 10, 10),
+      venue: 'USF Verftet, Bergen',
+      organizer: 'USF Verftet',
+    );
+    await seedConfirmedGig(
+      repository,
+      clock: () => clock,
+      date: DateTime(2026, 11, 1),
+      venue: 'Koengen, Bergen',
+      organizer: 'Bergensfestivalen',
+    );
+
     final session = await repository.signInArtist(
       email: DemoCatalog.artistEmail,
       password: DemoCatalog.artistPassword,
@@ -67,12 +84,10 @@ void main() {
     final gigs = await repository.fetchMyGigs();
     expect(gigs, hasLength(2));
     final yesterday = gigs.firstWhere((gig) => gig.date == DateTime(2026, 10, 10));
-    expect(yesterday.production.dinnerAtAccommodation, isFalse);
-    expect(yesterday.production.dinnerVenueName, 'Colonialen');
+    expect(yesterday.id, yesterdayGig.gigId);
 
     final upcoming = gigs.firstWhere((gig) => gig.date == DateTime(2026, 11, 1));
-    expect(upcoming.production.dinnerAtAccommodation, isTrue);
-    expect(upcoming.organizer.phone, '900 11 223');
+    expect(upcoming.organizer.phone, '900 00 000');
 
     expect((await repository.fetchSetlist(yesterday.id)).confirmed, isFalse);
 
@@ -95,6 +110,6 @@ void main() {
       duration: '2:05',
     );
     expect(added.duration, '02:05');
-    expect(await repository.fetchRepertoire(), hasLength(4));
+    expect(await repository.fetchRepertoire(), hasLength(1));
   });
 }

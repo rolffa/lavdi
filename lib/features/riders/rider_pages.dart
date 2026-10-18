@@ -266,7 +266,6 @@ class _ArtistRidersPageState extends State<ArtistRidersPage> {
                               const SizedBox(height: 20),
                               if (!_hospitality) ...[
                                 TechnicalRiderPanel(
-                                  leader: overview.me.isLeader,
                                   busy: _busy,
                                   plot: _plot,
                                   inputList: _inputList,

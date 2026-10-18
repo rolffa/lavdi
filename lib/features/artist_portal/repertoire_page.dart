@@ -176,26 +176,21 @@ class _RepertoirePageState extends State<RepertoirePage> {
                               key: _formKey,
                               child: Column(
                                 children: [
-                                  TextFormField(
+                                  PortalTextFormField(
                                     controller: _title,
+                                    label: 'Tittel',
                                     textCapitalization:
                                         TextCapitalization.sentences,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Tittel',
-                                    ),
                                     validator: (value) =>
                                         value == null || value.trim().isEmpty
                                         ? 'Oppgi tittel'
                                         : null,
                                   ),
                                   const SizedBox(height: 12),
-                                  TextFormField(
+                                  PortalTextFormField(
                                     controller: _duration,
+                                    label: 'Spilletid (03:45)',
                                     keyboardType: TextInputType.datetime,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Spilletid',
-                                      hintText: '03:45',
-                                    ),
                                     validator: (value) =>
                                         normalizePlayTime(value ?? '') == null
                                         ? 'Bruk formen 03:45'
@@ -203,11 +198,7 @@ class _RepertoirePageState extends State<RepertoirePage> {
                                   ),
                                   if (_formError != null) ...[
                                     const SizedBox(height: 12),
-                                    Text(
-                                      _formError!,
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(color: AppColors.busy),
-                                    ),
+                                    FieldError(_formError!),
                                   ],
                                   const SizedBox(height: 16),
                                   SizedBox(

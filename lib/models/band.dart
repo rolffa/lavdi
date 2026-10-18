@@ -110,17 +110,26 @@ class BandMember {
       food.trim().isNotEmpty &&
       personalTech.trim().isNotEmpty;
 
+  /// Placeholder-bindestreker fra eldre admin-visning telles som tomt.
+  static String _field(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty || text == '—' || text == '–' || text == '-' || text == '--') {
+      return '';
+    }
+    return text;
+  }
+
   factory BandMember.fromJson(Map<String, dynamic> json) {
     return BandMember(
       id: json['id'] as String,
       bandId: json['band_id'] as String,
       userId: json['user_id'] as String?,
-      name: (json['navn'] as String?)?.trim() ?? '',
-      role: (json['rolle'] as String?)?.trim() ?? '',
-      phone: (json['telefon'] as String?)?.trim() ?? '',
-      food: (json['mat'] as String?)?.trim() ?? '',
-      personalTech: (json['tech_personlig'] as String?)?.trim() ?? '',
-      email: (json['epost'] as String?)?.trim() ?? '',
+      name: _field(json['navn'] as String?),
+      role: _field(json['rolle'] as String?),
+      phone: _field(json['telefon'] as String?),
+      food: _field(json['mat'] as String?),
+      personalTech: _field(json['tech_personlig'] as String?),
+      email: _field(json['epost'] as String?),
       isLeader: json['er_leder'] as bool? ?? false,
     );
   }

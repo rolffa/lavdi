@@ -171,8 +171,13 @@ class _MinSidePageState extends State<MinSidePage> {
   }
 
   Future<void> _signOut() async {
+    final wasAdminView = _session?.asAdmin ?? false;
     await PortalScope.of(context).repository.signOutArtist();
     if (!mounted) return;
+    if (wasAdminView) {
+      context.go('/admin/artister');
+      return;
+    }
     setState(() {
       _session = null;
       _band = null;
@@ -196,7 +201,9 @@ class _MinSidePageState extends State<MinSidePage> {
               children: [
                 if (_session == null)
                   _LoginPanel(onSignedIn: _load)
-                else if (_band != null && !_band!.me.profileComplete)
+                else if (_band != null &&
+                    !_band!.me.profileComplete &&
+                    !_session!.asAdmin)
                   _ProfileGate(
                     member: _band!.me,
                     onSaved: _load,
@@ -298,31 +305,27 @@ class _LoginPanelState extends State<_LoginPanel> {
               ),
             ),
             const SizedBox(height: 24),
-            InkSurface(
-              child: TextFormField(
-                controller: _email,
-                keyboardType: TextInputType.emailAddress,
-                autofillHints: const [AutofillHints.email],
-                decoration: const InputDecoration(labelText: 'E-post'),
-                validator: (value) {
-                  if (value == null || !value.contains('@')) {
-                    return 'Oppgi e-post';
-                  }
-                  return null;
-                },
-              ),
+            PortalTextFormField(
+              controller: _email,
+              label: 'E-post',
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.email],
+              validator: (value) {
+                if (value == null || !value.contains('@')) {
+                  return 'Oppgi e-post';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 12),
-            InkSurface(
-              child: TextFormField(
-                controller: _password,
-                obscureText: true,
-                autofillHints: const [AutofillHints.password],
-                decoration: const InputDecoration(labelText: 'Passord'),
-                validator: (value) =>
-                    value == null || value.length < 4 ? 'Oppgi passord' : null,
-                onFieldSubmitted: (_) => _signIn(),
-              ),
+            PortalTextFormField(
+              controller: _password,
+              label: 'Passord',
+              obscureText: true,
+              autofillHints: const [AutofillHints.password],
+              onFieldSubmitted: (_) => _signIn(),
+              validator: (value) =>
+                  value == null || value.length < 4 ? 'Oppgi passord' : null,
             ),
             if (_message != null) ...[
               const SizedBox(height: 12),
@@ -566,6 +569,7 @@ class _ProfileGate extends StatelessWidget {
                   required String phone,
                   required String food,
                   required String personalTech,
+                  String? password,
                 }) async {
                   await PortalScope.of(context).repository.saveMyProfile(
                     name: name,
@@ -843,16 +847,14 @@ class _DeclineDialogState extends State<_DeclineDialog> {
               autofocus: true,
               minLines: 3,
               maxLines: 5,
+              style: portalFieldStyle,
+              cursorColor: AppColors.ink,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'Kommentar'),
+              decoration: fieldDecoration(label: 'Kommentar'),
             ),
             if (_error != null) ...[
               const SizedBox(height: 8),
-              Text(
-                _error!,
-                style: Theme.of(context).textTheme.bodyMedium
-                    ?.copyWith(color: AppColors.busy),
-              ),
+              FieldError(_error!),
             ],
           ],
         ),

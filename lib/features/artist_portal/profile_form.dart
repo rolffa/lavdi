@@ -9,15 +9,18 @@ class MemberProfileForm extends StatefulWidget {
     super.key,
     required this.initial,
     required this.onSave,
+    this.includePassword = false,
   });
 
   final BandMember initial;
+  final bool includePassword;
   final Future<void> Function({
     required String name,
     required String role,
     required String phone,
     required String food,
     required String personalTech,
+    String? password,
   })
   onSave;
 
@@ -32,6 +35,8 @@ class _MemberProfileFormState extends State<MemberProfileForm> {
   late final TextEditingController _phone;
   late final TextEditingController _food;
   late final TextEditingController _tech;
+  late final TextEditingController _password;
+  late final TextEditingController _confirm;
   var _saving = false;
   String? _error;
 
@@ -43,6 +48,8 @@ class _MemberProfileFormState extends State<MemberProfileForm> {
     _phone = TextEditingController(text: widget.initial.phone);
     _food = TextEditingController(text: widget.initial.food);
     _tech = TextEditingController(text: widget.initial.personalTech);
+    _password = TextEditingController();
+    _confirm = TextEditingController();
   }
 
   @override
@@ -52,6 +59,8 @@ class _MemberProfileFormState extends State<MemberProfileForm> {
     _phone.dispose();
     _food.dispose();
     _tech.dispose();
+    _password.dispose();
+    _confirm.dispose();
     super.dispose();
   }
 
@@ -68,6 +77,7 @@ class _MemberProfileFormState extends State<MemberProfileForm> {
         phone: _phone.text,
         food: _food.text,
         personalTech: _tech.text,
+        password: widget.includePassword ? _password.text : null,
       );
     } catch (error) {
       if (!mounted) return;
@@ -80,85 +90,110 @@ class _MemberProfileFormState extends State<MemberProfileForm> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return InkSurface(
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextFormField(
-              controller: _name,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Navn'),
-              validator: _required('Oppgi navn'),
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PortalTextFormField(
+            controller: _name,
+            label: 'Navn',
+            textCapitalization: TextCapitalization.words,
+            validator: _required('Oppgi navn'),
+          ),
+          const SizedBox(height: 12),
+          PortalTextFormField(
+            controller: _role,
+            label: 'Rolle / instrument',
+            helperText: 'For eksempel musiker, lydtekniker eller turnéleder',
+            textCapitalization: TextCapitalization.sentences,
+            validator: _required('Oppgi rolle eller instrument'),
+          ),
+          const SizedBox(height: 12),
+          PortalTextFormField(
+            controller: _phone,
+            label: 'Telefon',
+            keyboardType: TextInputType.phone,
+            validator: _required('Oppgi telefonnummer'),
+          ),
+          const SizedBox(height: 12),
+          PortalTextFormField(
+            controller: _food,
+            label: 'Matpreferanser og allergier',
+            helperText: 'Dietter, allergier og spesielle ønsker',
+            alignLabelWithHint: true,
+            minLines: 3,
+            maxLines: 6,
+            textCapitalization: TextCapitalization.sentences,
+            validator: _required('Oppgi mat, allergier eller skriv Ingen'),
+          ),
+          const SizedBox(height: 12),
+          PortalTextFormField(
+            controller: _tech,
+            label: 'Personlige tekniske behov',
+            helperText: 'IEM, trådløse frekvenser, mikrofon, DI-bokser og strøm',
+            alignLabelWithHint: true,
+            minLines: 3,
+            maxLines: 6,
+            textCapitalization: TextCapitalization.sentences,
+            validator: _required('Oppgi tekniske behov eller skriv Ingen'),
+          ),
+          if (widget.includePassword) ...[
+            const SizedBox(height: 20),
+            Text('Lag innloggingspassord', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 6),
+            Text(
+              'Brukes neste gang du logger inn på Min side med e-post.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.onImageMuted,
+              ),
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _role,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Rolle / instrument',
-                helperText:
-                    'For eksempel musiker, lydtekniker eller turnéleder',
-                helperStyle: TextStyle(color: AppColors.muted),
-              ),
-              validator: _required('Oppgi rolle eller instrument'),
+            PortalTextFormField(
+              controller: _password,
+              label: 'Passord',
+              obscureText: true,
+              autofillHints: const [AutofillHints.newPassword],
+              validator: (value) {
+                if (value == null || value.trim().length < 6) {
+                  return 'Passordet må være minst 6 tegn';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _phone,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'Telefon'),
-              validator: _required('Oppgi telefonnummer'),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _food,
-              minLines: 3,
-              maxLines: 6,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Matpreferanser og allergier',
-                helperText: 'Dietter, allergier og spesielle ønsker',
-                helperStyle: TextStyle(color: AppColors.muted),
-                alignLabelWithHint: true,
-              ),
-              validator: _required('Oppgi mat, allergier eller skriv Ingen'),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _tech,
-              minLines: 3,
-              maxLines: 6,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Personlige tekniske behov',
-                helperText:
-                    'IEM, trådløse frekvenser, mikrofon, DI-bokser og strøm',
-                helperStyle: TextStyle(color: AppColors.muted),
-                alignLabelWithHint: true,
-              ),
-              validator: _required('Oppgi tekniske behov eller skriv Ingen'),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.busy,
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _saving ? null : _submit,
-                child: Text(_saving ? 'Lagrer…' : 'Lagre profil'),
-              ),
+            PortalTextFormField(
+              controller: _confirm,
+              label: 'Bekreft passord',
+              obscureText: true,
+              autofillHints: const [AutofillHints.newPassword],
+              validator: (value) {
+                if (value != _password.text) {
+                  return 'Passordene er ikke like';
+                }
+                return null;
+              },
             ),
           ],
-        ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            FieldError(_error!),
+          ],
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _saving ? null : _submit,
+              child: Text(
+                _saving
+                    ? 'Lagrer…'
+                    : widget.includePassword
+                    ? 'Lagre profil og passord'
+                    : 'Lagre profil',
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

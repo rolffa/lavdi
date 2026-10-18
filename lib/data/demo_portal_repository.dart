@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/artist_slug.dart';
@@ -30,7 +31,7 @@ import '../models/venue_note.dart';
 import 'demo_catalog.dart';
 import 'portal_repository.dart';
 
-class DemoPortalRepository implements PortalRepository {
+class DemoPortalRepository extends PortalRepository {
   DemoPortalRepository({DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
 
   final DateTime Function() _clock;
@@ -43,27 +44,19 @@ class DemoPortalRepository implements PortalRepository {
   final List<BookingDeal> _deals = [];
   var _dealReady = false;
   ArtistSession? _session;
+  ArtistSession? _adminViewAsArtist;
   String? _adminSecret;
-  final List<RepertoireTrack> _repertoire = [
-    const RepertoireTrack(id: 'rep-1', title: 'Nordavind', duration: '03:45'),
-    const RepertoireTrack(id: 'rep-2', title: 'Etter midnatt', duration: '04:12'),
-    const RepertoireTrack(id: 'rep-3', title: 'Koengens lys', duration: '03:20'),
-  ];
+  final List<RepertoireTrack> _repertoire = [];
   final Map<String, ConcertSetlist> _setlists = {};
-  var _trackSequence = 4;
-  var _memberSequence = 3;
+  var _trackSequence = 1;
+  var _memberSequence = 1;
   Band? _band = const Band(
     id: 'band-rolffa',
     artistId: DemoCatalog.linnId,
     name: 'Rolffa',
-    contact: 'rolffa@lavdi.no · 900 10 010',
-    sharedTech: '2 vokal, gitar og keys. Stereomix til IEM. 4 linjer DI.',
-    sharedHospitality:
-        'Stille backstage med vann, kaffe og et rom til omkledning. 2 enkeltrom.',
-    inputList: 'Vokal 1, vokal 2, gitar og keys. 4 linjer DI.',
-    monitors: 'Stereomix til IEM for begge. Ingen wedges.',
-    stageRig: 'Ingen DJ. Keys og gitar på scenen.',
-    paRequirements: 'Stereo PA med headroom til vokal.',
+    contact: 'rolffa@lavdi.no',
+    sharedTech: '',
+    sharedHospitality: '',
   );
   final List<BandMember> _members = [
     const BandMember(
@@ -72,33 +65,14 @@ class DemoPortalRepository implements PortalRepository {
       userId: 'user-rolffa',
       name: 'Rolffa',
       role: 'Bandleder',
-      phone: '900 10 010',
-      food: 'Vegetar. Ingen nøtter.',
-      personalTech: 'IEM, Shure PSM 300. Egen pack.',
+      phone: '',
+      food: '',
+      personalTech: '',
       email: DemoCatalog.artistEmail,
       isLeader: true,
     ),
-    const BandMember(
-      id: 'member-sigrid',
-      bandId: 'band-rolffa',
-      userId: 'user-sigrid',
-      name: 'Sigrid Holm',
-      role: 'Musiker',
-      phone: '900 20 020',
-      food: 'Glutenfri.',
-      personalTech: 'Trådløs gitar, egen sender.',
-      email: 'sigrid@lavdi.no',
-    ),
   ];
-  final List<BandInvite> _invites = [
-    const BandInvite(
-      id: 'invite-lyd',
-      bandId: 'band-rolffa',
-      email: 'lyd@lavdi.no',
-      role: 'Lydtekniker',
-      token: 'demo-lyd',
-    ),
-  ];
+  final List<BandInvite> _invites = [];
   StagePlot? _stagePlot;
   final Map<String, List<CrewLeg>> _crewByGig = {};
   final Map<String, ({String endpoint, String p256dh, String auth})> _pushByUser = {};
@@ -108,100 +82,9 @@ class DemoPortalRepository implements PortalRepository {
   var _inquirySequence = 0;
   var _venueNoteSequence = 1;
   late PressKit _pressKit = _seedPressKit();
-  final List<VenueNote> _venueNotes = [
-    VenueNote(
-      id: 'note-koengen',
-      bandId: 'band-rolffa',
-      venueName: 'Koengen',
-      city: 'Bergen',
-      loadInNotes: 'Bæring fra baksiden. Heis til scenenivå.',
-      soundLightingNotes: 'God PA. Teknisk ansvarlig kjenner IEM.',
-      hospitalityNotes: 'Garderobe under scenen. Varm mat i backstage.',
-      contactNotes: 'Ida møter i døren.',
-      createdAt: DateTime(2026, 8, 1),
-      updatedAt: DateTime(2026, 8, 1),
-    ),
-  ];
+  final List<VenueNote> _venueNotes = [];
 
-  List<Gig> _seedGigs() {
-    final upcoming = addCalendarDays(_clock(), 21);
-    final yesterday = addCalendarDays(_clock(), -1);
-    return [
-      Gig(
-        id: 'b2000000-0000-4000-8000-000000000002',
-        bookingId: 'c3000000-0000-4000-8000-000000000002',
-        bookingToken: 'amundsen-demo-rolffa-igår',
-        artistId: DemoCatalog.linnId,
-        artistName: 'Rolffa',
-        date: yesterday,
-        status: 'ready',
-        organizer: const Organizer(
-          name: 'USF Verftet',
-          organization: 'USF Verftet',
-          contactPerson: 'Ida Solheim',
-          email: 'ida@example.com',
-          phone: '900 22 110',
-          venueCity: 'USF Verftet, Bergen',
-        ),
-        production: const ProductionPlan(
-          eventName: 'Kvelden på USF',
-          accommodationName: 'Hotel Norge',
-          accommodationAddress: 'Nedre Ole Bulls plass 4, Bergen',
-          nearestAirport: 'Bergen lufthavn, Flesland',
-          airportDistance: '20 minutter med taxi',
-          travelRoute: 'Fly til BGO, taxi 20 minutter til hotellet.',
-          getIn: TimeOfDay(hour: 15, minute: 0),
-          soundcheck: TimeOfDay(hour: 16, minute: 30),
-          showGetIn: TimeOfDay(hour: 18, minute: 0),
-          dinner: TimeOfDay(hour: 17, minute: 30),
-          showStart: TimeOfDay(hour: 21, minute: 0),
-          loadOut: TimeOfDay(hour: 23, minute: 30),
-          curfew: TimeOfDay(hour: 23, minute: 0),
-          dinnerAtAccommodation: false,
-          dinnerVenueName: 'Colonialen',
-          dinnerAddress: 'Kong Oscars gate 44, Bergen',
-          technicianName: 'Mats Hauge',
-          technicianPhone: '900 33 441',
-          daySheetReady: true,
-        ),
-      ),
-      Gig(
-        id: 'b2000000-0000-4000-8000-000000000001',
-        bookingId: DemoCatalog.productionBookingId,
-        bookingToken: DemoCatalog.productionToken,
-        artistId: DemoCatalog.linnId,
-        artistName: 'Rolffa',
-        date: upcoming,
-        status: 'confirmed',
-        organizer: const Organizer(
-          name: 'Bergensfestivalen',
-          organization: 'Bergensfestivalen AS',
-          contactPerson: 'Nora Berg',
-          email: 'nora@example.com',
-          phone: '900 11 223',
-          venueCity: 'Koengen, Bergen',
-        ),
-        production: const ProductionPlan(
-          eventName: 'Koengen',
-          accommodationName: 'Hotel Norge',
-          accommodationAddress: 'Nedre Ole Bulls plass 4, Bergen',
-          nearestAirport: 'Bergen lufthavn, Flesland',
-          airportDistance: '20 minutter med taxi',
-          travelRoute: 'Fly til BGO, taxi 20 minutter til hotellet.',
-          getIn: TimeOfDay(hour: 14, minute: 0),
-          soundcheck: TimeOfDay(hour: 16, minute: 0),
-          showGetIn: TimeOfDay(hour: 18, minute: 30),
-          dinner: TimeOfDay(hour: 17, minute: 0),
-          showStart: TimeOfDay(hour: 21, minute: 0),
-          loadOut: TimeOfDay(hour: 23, minute: 30),
-          curfew: TimeOfDay(hour: 23, minute: 0),
-          technicianName: 'Mats Hauge',
-          technicianPhone: '900 33 441',
-          daySheetReady: true,
-        ),
-      ),
-    ];
-  }
+  List<Gig> _seedGigs() => [];
 
   bool _isConfirmed(String artistId, DateTime date) {
     return _gigs.any((gig) => gig.artistId == artistId && isSameDay(gig.date, date));
@@ -362,21 +245,210 @@ class DemoPortalRepository implements PortalRepository {
     return updated;
   }
 
+  String _adminUsername = '';
+  String _adminAuthEmail = '';
+  String _adminPassword = DemoCatalog.adminPassword;
+  String? _adminAvatarUrl;
+  String? _myAvatarUrl;
+  String _artistPassword = DemoCatalog.artistPassword;
+
   @override
   bool get isAdminSignedIn => _adminSecret != null;
 
   @override
+  String get adminUsername => _adminUsername;
+
+  @override
+  String get adminAuthEmail => _adminAuthEmail;
+
+  @override
   Future<void> signInAdmin({required String username, required String password}) async {
     final name = username.trim().toLowerCase();
-    if (name != DemoCatalog.adminUsername || password != DemoCatalog.adminPassword) {
+    if (name != DemoCatalog.adminUsername || password != _adminPassword) {
       throw PortalException('Feil brukernavn eller passord');
     }
     _adminSecret = password;
+    _adminUsername = name;
+    _adminAuthEmail = DemoCatalog.adminEmail;
   }
 
   @override
   void signOutAdmin() {
     _adminSecret = null;
+    _adminUsername = '';
+    _adminAuthEmail = '';
+    if (_adminViewAsArtist != null) {
+      _adminViewAsArtist = null;
+      _session = null;
+    }
+    notifyListeners();
+  }
+
+  @override
+  ArtistSession? get adminViewAsArtist => _adminViewAsArtist;
+
+  @override
+  Future<ArtistSession> openArtistPortalAsAdmin(String artistId) async {
+    _requireAdmin();
+    final artist = _artist(artistId);
+    if (artist == null) throw PortalException('Fant ikke artisten.');
+    final session = ArtistSession(
+      artistId: artist.id,
+      artistName: artist.name,
+      email: _adminAuthEmail,
+      asAdmin: true,
+    );
+    _adminViewAsArtist = session;
+    _session = session;
+    notifyListeners();
+    return session;
+  }
+
+  @override
+  Future<void> closeArtistPortalAsAdmin() async {
+    _requireAdmin();
+    _adminViewAsArtist = null;
+    _session = null;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> changeAdminPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    _requireAdmin();
+    if (currentPassword != _adminPassword) {
+      throw PortalException('Nåværende passord er feil');
+    }
+    if (newPassword.trim().length < 6) {
+      throw PortalException('Nytt passord må være minst 6 tegn');
+    }
+    _adminPassword = newPassword.trim();
+    _adminSecret = _adminPassword;
+  }
+
+  @override
+  Future<String?> fetchAdminAvatarUrl() async {
+    _requireAdmin();
+    return _adminAvatarUrl;
+  }
+
+  @override
+  Future<String> uploadAdminAvatar({
+    required String filename,
+    required Uint8List bytes,
+  }) async {
+    _requireAdmin();
+    if (bytes.isEmpty) throw PortalException('Velg et bilde');
+    _adminAvatarUrl = 'demo-admin-avatar:${bytes.length}:$filename';
+    return _adminAvatarUrl!;
+  }
+
+  @override
+  Future<void> changeArtistPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    _requireSession();
+    if (currentPassword != _artistPassword) {
+      throw PortalException('Nåværende passord er feil');
+    }
+    if (newPassword.trim().length < 6) {
+      throw PortalException('Nytt passord må være minst 6 tegn');
+    }
+    _artistPassword = newPassword.trim();
+  }
+
+  @override
+  Future<void> setArtistPassword(String password) async {
+    _requireSession();
+    if (password.trim().length < 6) {
+      throw PortalException('Passordet må være minst 6 tegn');
+    }
+    _artistPassword = password.trim();
+  }
+
+  @override
+  Future<String?> fetchMyAvatarUrl() async {
+    _requireSession();
+    return _myAvatarUrl;
+  }
+
+  @override
+  Future<String> uploadMyAvatar({
+    required String filename,
+    required Uint8List bytes,
+  }) async {
+    _requireSession();
+    if (bytes.isEmpty) throw PortalException('Velg et bilde');
+    _myAvatarUrl = 'demo-avatar:${bytes.length}:$filename';
+    return _myAvatarUrl!;
+  }
+
+  @override
+  Future<List<BandMember>> fetchAdminBandAccounts(String artistId) async {
+    _requireAdmin();
+    final band = _band;
+    if (band == null || band.artistId != artistId) return const [];
+    return [
+      for (final member in _members.where((m) => m.bandId == band.id))
+        member,
+    ];
+  }
+
+  @override
+  Future<BandInvite> adminInviteBandMember({
+    required String artistId,
+    required String email,
+    required String role,
+    bool asLeader = false,
+  }) async {
+    _requireAdmin();
+    final artist = _artist(artistId);
+    if (artist == null) throw PortalException('Fant ikke artisten');
+    if (_band == null || _band!.artistId != artistId) {
+      _band = Band(
+        id: 'band-$artistId',
+        artistId: artistId,
+        name: artist.name,
+        contact: '',
+        sharedTech: '',
+        sharedHospitality: '',
+      );
+    }
+    final address = email.trim().toLowerCase();
+    final crewRole = asLeader ? 'Bandleder' : role.trim();
+    if (!address.contains('@')) {
+      throw PortalException('Oppgi en gyldig e-postadresse.');
+    }
+    if (crewRole.isEmpty) throw PortalException('Oppgi en rolle.');
+    final existing = _invites.indexWhere(
+      (invite) => !invite.accepted && invite.email.toLowerCase() == address,
+    );
+    final invite = BandInvite(
+      id: existing >= 0 ? _invites[existing].id : 'invite-${_memberSequence++}',
+      bandId: _band!.id,
+      email: address,
+      role: crewRole,
+      token: 'demo-${_memberSequence++}',
+    );
+    if (existing >= 0) {
+      _invites[existing] = invite;
+    } else {
+      _invites.add(invite);
+    }
+    return invite;
+  }
+
+  @override
+  Future<void> adminSendPasswordReset(String email) async {
+    _requireAdmin();
+    final address = email.trim().toLowerCase();
+    if (!address.contains('@')) {
+      throw PortalException('Oppgi en gyldig e-postadresse.');
+    }
+    // Demo: ingen mailserver – lagres bare som vellykket handling.
   }
 
   void _requireAdmin() {
@@ -424,19 +496,37 @@ class DemoPortalRepository implements PortalRepository {
   }
 
   @override
-  Future<ArtistSession?> currentArtist() async => _session;
+  Future<ArtistSession?> currentArtist() async =>
+      _adminViewAsArtist ?? _session;
 
   @override
   Future<ArtistSession> signInArtist({
     required String email,
     required String password,
   }) async {
-    final knownEmail = email.trim().toLowerCase() == DemoCatalog.artistEmail;
-    final knownPassword = password == DemoCatalog.artistPassword;
-    if (!knownEmail || !knownPassword) {
+    final address = email.trim().toLowerCase();
+    if (password != _artistPassword) {
       throw PortalException('Feil e-post eller passord');
     }
-    _session = _rolffaSession();
+    if (address == DemoCatalog.artistEmail) {
+      _session = _rolffaSession();
+      return _session!;
+    }
+    BandMember? member;
+    for (final item in _members) {
+      if (item.email.toLowerCase() == address) {
+        member = item;
+        break;
+      }
+    }
+    if (member == null || _band == null) {
+      throw PortalException('Feil e-post eller passord');
+    }
+    _session = ArtistSession(
+      artistId: _band!.artistId ?? '',
+      artistName: _band!.name,
+      email: member.email,
+    );
     return _session!;
   }
 
@@ -451,6 +541,10 @@ class DemoPortalRepository implements PortalRepository {
 
   @override
   Future<void> signOutArtist() async {
+    if (_adminViewAsArtist != null) {
+      await closeArtistPortalAsAdmin();
+      return;
+    }
     _session = null;
   }
 
@@ -543,9 +637,7 @@ class DemoPortalRepository implements PortalRepository {
       band: band,
       me: me,
       members: List<BandMember>.of(_members),
-      invites: me.isLeader
-          ? _invites.where((invite) => !invite.accepted).toList()
-          : const [],
+      invites: _invites.where((invite) => !invite.accepted).toList(),
     );
   }
 
@@ -555,39 +647,82 @@ class DemoPortalRepository implements PortalRepository {
   }
 
   @override
-  Future<BandOverview?> fetchMyBand() async => _overview();
+  Future<BandOverview?> fetchMyBand() async {
+    final view = _adminViewAsArtist;
+    if (view != null) {
+      final artist = _artist(view.artistId);
+      if (artist == null) return null;
+      final band = (_band?.artistId == artist.id)
+          ? _band!
+          : Band(
+              id: 'admin-view-${artist.id}',
+              artistId: artist.id,
+              name: artist.name,
+              contact: '',
+              sharedTech: '',
+              sharedHospitality: '',
+            );
+      final me = BandMember(
+        id: 'admin-view-me',
+        bandId: band.id,
+        name: 'Admin',
+        role: 'Admin',
+        phone: '',
+        food: '',
+        personalTech: '',
+        email: view.email,
+        isLeader: true,
+      );
+      final members = _band?.artistId == artist.id
+          ? List<BandMember>.of(_members)
+          : <BandMember>[me];
+      return BandOverview(
+        band: band,
+        me: me,
+        members: members.isEmpty ? [me] : members,
+        invites: _band?.artistId == artist.id
+            ? _invites.where((invite) => !invite.accepted).toList()
+            : const [],
+      );
+    }
+    return _overview();
+  }
+
+  @override
+  Future<BandOverview> ensureMyBand() async {
+    final session = await currentArtist();
+    if (session == null) throw PortalException('Logg inn på nytt.');
+    if (_band?.artistId == session.artistId) {
+      final existing = await fetchMyBand();
+      if (existing != null) return existing;
+    }
+    return createBand(name: session.artistName, contact: '');
+  }
 
   @override
   Future<BandOverview> createBand({required String name, required String contact}) async {
     _requireSession();
-    if (_me() != null || _band != null) {
-      throw PortalException('Bandet finnes allerede.');
+    final artistId = _session!.artistId;
+    if (_band?.artistId == artistId) {
+      final existing = await fetchMyBand();
+      if (existing != null) return existing;
     }
+    final bandName =
+        name.trim().isEmpty ? _session!.artistName : name.trim();
+    if (bandName.isEmpty) throw PortalException('Bandet trenger et navn.');
     final band = Band(
       id: 'band-${_memberSequence++}',
-      artistId: _session!.artistId,
-      name: name.trim(),
+      artistId: artistId,
+      name: bandName,
       contact: contact.trim(),
       sharedTech: '',
       sharedHospitality: '',
     );
-    if (band.name.isEmpty) throw PortalException('Bandet trenger et navn.');
     _band = band;
-    _members.add(
-      BandMember(
-        id: 'member-${_memberSequence++}',
-        bandId: band.id,
-        userId: 'user-${_session!.email}',
-        name: band.name,
-        role: 'Bandleder',
-        phone: '',
-        food: '',
-        personalTech: '',
-        email: _session!.email,
-        isLeader: true,
-      ),
-    );
-    return _overview()!;
+    // Bandleder kommer via første invitasjon — ikke auto-opprettet artist-sete.
+    final overview = await fetchMyBand();
+    if (overview == null) throw PortalException('Bandet ble ikke opprettet.');
+    return overview;
   }
 
   @override
@@ -600,8 +735,8 @@ class DemoPortalRepository implements PortalRepository {
     _requireSession();
     final me = _me();
     final band = _band;
-    if (me == null || !me.isLeader || band == null) {
-      throw PortalException('Bare bandlederen kan oppdatere bandet.');
+    if (me == null || band == null) {
+      throw PortalException('Du er ikke med i et band.');
     }
     if (name.trim().isEmpty) throw PortalException('Bandet trenger et navn.');
     _band = band.copyWith(
@@ -623,8 +758,8 @@ class DemoPortalRepository implements PortalRepository {
     _requireSession();
     final me = _me();
     final band = _band;
-    if (me == null || !me.isLeader || band == null) {
-      throw PortalException('Bare bandlederen kan oppdatere den tekniske rideren.');
+    if (me == null || band == null) {
+      throw PortalException('Du er ikke med i et band.');
     }
     _band = band.copyWith(
       inputList: inputList.trim(),
@@ -651,8 +786,8 @@ class DemoPortalRepository implements PortalRepository {
     _requireSession();
     final me = _me();
     final band = _band;
-    if (me == null || !me.isLeader || band == null) {
-      throw PortalException('Bare bandlederen kan laste opp scenekart.');
+    if (me == null || band == null) {
+      throw PortalException('Du er ikke med i et band.');
     }
     final checked = checkedStagePlot(filename: filename, bytes: bytes);
     final stored = StagePlot(
@@ -675,8 +810,8 @@ class DemoPortalRepository implements PortalRepository {
     _requireSession();
     final me = _me();
     final band = _band;
-    if (me == null || !me.isLeader || band == null) {
-      throw PortalException('Bare bandlederen kan fjerne scenekartet.');
+    if (me == null || band == null) {
+      throw PortalException('Du er ikke med i et band.');
     }
     _stagePlot = null;
     _band = band.copyWith(stagePlotPath: '', stagePlotName: '', stagePlotType: '');
@@ -712,17 +847,40 @@ class DemoPortalRepository implements PortalRepository {
   }
 
   @override
+  Future<void> removeMember(String memberId) async {
+    _requireSession();
+    final overview = await fetchMyBand();
+    if (overview == null) {
+      throw PortalException('Du er ikke med i et band.');
+    }
+    BandMember? member;
+    for (final item in overview.members) {
+      if (item.id == memberId) member = item;
+    }
+    if (member == null) throw PortalException('Fant ikke medlemmet.');
+    if (member.isLeader) {
+      final leaders =
+          overview.members.where((item) => item.isLeader).length;
+      if (leaders <= 1) {
+        throw PortalException('Kan ikke fjerne den eneste bandlederen.');
+      }
+    }
+    _members.removeWhere((item) => item.id == memberId);
+  }
+
+  @override
   Future<BandInvite> inviteMember({required String email, required String role}) async {
     _requireSession();
     final me = _me();
     final band = _band;
-    if (me == null || !me.isLeader || band == null) {
-      throw PortalException('Bare bandlederen kan invitere.');
+    if ((me == null && _adminViewAsArtist == null) || band == null) {
+      throw PortalException('Du er ikke med i et band.');
     }
     final address = email.trim().toLowerCase();
-    final crewRole = role.trim();
+    var crewRole = role.trim();
     if (!address.contains('@')) throw PortalException('Oppgi en gyldig e-postadresse.');
     if (crewRole.isEmpty) throw PortalException('Oppgi en rolle.');
+    if (_members.isEmpty) crewRole = 'Bandleder';
     final existing = _invites.indexWhere(
       (invite) => !invite.accepted && invite.email.toLowerCase() == address,
     );
@@ -738,6 +896,7 @@ class DemoPortalRepository implements PortalRepository {
     } else {
       _invites.add(invite);
     }
+    await sendInviteEmail(invite.token);
     return invite;
   }
 
@@ -745,13 +904,14 @@ class DemoPortalRepository implements PortalRepository {
   Future<void> sendInviteEmail(String token) async {
     final preview = await previewInvite(token);
     if (preview == null) throw PortalException('Invitasjonen finnes ikke.');
+    if (preview.used) throw PortalException('Invitasjonen er allerede brukt.');
   }
 
   @override
   Future<void> revokeInvite(String inviteId) async {
     _requireSession();
-    if (_me()?.isLeader != true) {
-      throw PortalException('Bare bandlederen kan trekke en invitasjon.');
+    if (_me() == null) {
+      throw PortalException('Du er ikke med i et band.');
     }
     _invites.removeWhere((invite) => invite.id == inviteId && !invite.accepted);
   }
@@ -771,12 +931,26 @@ class DemoPortalRepository implements PortalRepository {
   }
 
   @override
+  String? currentAuthEmail() => _session?.email ?? _adminViewAsArtist?.email;
+
+  @override
+  Future<String?> waitForAuthEmail({
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
+    return currentAuthEmail();
+  }
+
+  @override
   Future<BandMember> acceptInvite(String token) async {
     final index = _invites.indexWhere((invite) => invite.token == token);
     if (index < 0 || _band == null) {
       throw PortalException('Invitasjonen finnes ikke.');
     }
     final invite = _invites[index];
+    final asLeader = _members.isEmpty ||
+        invite.role.toLowerCase() == 'bandleder' ||
+        invite.role.toLowerCase() == 'leder';
+    final role = _members.isEmpty ? 'Bandleder' : invite.role;
     BandMember? member;
     for (final item in _members) {
       if (item.email.toLowerCase() == invite.email.toLowerCase()) member = item;
@@ -786,11 +960,12 @@ class DemoPortalRepository implements PortalRepository {
       bandId: _band!.id,
       userId: 'user-${invite.email}',
       name: '',
-      role: invite.role,
+      role: role,
       phone: '',
       food: '',
       personalTech: '',
       email: invite.email,
+      isLeader: asLeader,
     );
     if (!_members.any((item) => item.id == member!.id)) _members.add(member);
     _invites[index] = BandInvite(
@@ -987,13 +1162,14 @@ class DemoPortalRepository implements PortalRepository {
     required String auth,
   }) async {
     final me = _me();
-    if (me?.userId == null || !receivesBandPush(isLeader: me!.isLeader, role: me.role)) {
-      throw PortalException('Bare bandleder eller admin kan slå på varsler.');
+    final userId = me?.userId;
+    if (userId == null || userId.isEmpty) {
+      throw PortalException('Du er ikke med i et band.');
     }
     if (!endpoint.startsWith('https://') || p256dh.trim().isEmpty || auth.trim().isEmpty) {
       throw PortalException('Ugyldig push-abonnement.');
     }
-    _pushByUser[me.userId!] = (endpoint: endpoint, p256dh: p256dh, auth: auth);
+    _pushByUser[userId] = (endpoint: endpoint, p256dh: p256dh, auth: auth);
   }
 
   @override
@@ -1192,40 +1368,16 @@ class DemoPortalRepository implements PortalRepository {
   void _ensureSeedDeals() {
     if (_dealReady) return;
     _dealReady = true;
-    final sent = _clock();
-    _deals.add(
-      BookingDeal(
-        id: 'offer-demo-1',
-        artistId: DemoCatalog.linnId,
-        artistName: 'Rolffa',
-        date: DateTime(2026, 10, 24),
-        organizerName: 'Oslo Live',
-        organization: 'Oslo Live',
-        contactPerson: 'Kari',
-        email: 'kari@example.com',
-        phone: '900 00 000',
-        venue: 'Parkteatret, Oslo',
-        fee: 90000,
-        message: 'Tilbud om kveldskonsert.',
-        status: DealStatus.withArtist,
-        sentAt: sent,
-        deadline: offerReplyDeadline(sent),
-      ),
-    );
-    _deals.add(
-      BookingDeal(
-        id: 'booking-demo-inquiry',
-        artistId: DemoCatalog.linnId,
-        artistName: 'Rolffa',
-        date: DateTime(2026, 12, 5),
-        organizerName: 'Studentersamfundet',
-        organization: 'Studentersamfundet',
-        contactPerson: 'Eva Berg',
-        email: 'booking@samfundet.no',
-        phone: '900 50 050',
-        venue: 'Studentersamfundet, Trondheim',
-        notes: 'Lørdagskonsert. Pris er ikke avtalt ennå.',
-      ),
+  }
+
+  /// Test helper: insert a confirmed gig without going through the booking flow.
+  @visibleForTesting
+  void debugAddConfirmedGig(Gig gig) {
+    _gigs.add(gig);
+    _overrides[_overrideKey(gig.artistId, dateOnly(gig.date))] = false;
+    _crewByGig.putIfAbsent(
+      gig.id,
+      () => _defaultCrew(gig.artistId, gig.artistName),
     );
   }
 
@@ -1612,8 +1764,8 @@ class DemoPortalRepository implements PortalRepository {
     required bool active,
   }) async {
     final me = _me();
-    if (me == null || !me.isLeader) {
-      throw PortalException('Bare bandlederen kan endre hvem som er med');
+    if (me == null) {
+      throw PortalException('Du er ikke med i et band.');
     }
     final crew = _crewForSessionGig(gigId);
     final index = crew.indexWhere((leg) => leg.memberId == memberId);

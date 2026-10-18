@@ -75,10 +75,6 @@ as $$
     select 1
     from public.band_members m
     where m.user_id = auth.uid()
-      and (
-        m.er_leder
-        or lower(btrim(m.rolle)) in ('admin', 'bandleder')
-      )
   );
 $$;
 
@@ -93,11 +89,7 @@ as $$
   from public.band_members m
   join public.bands b on b.id = m.band_id
   where b.artist_id = p_artist_id
-    and m.user_id is not null
-    and (
-      m.er_leder
-      or lower(btrim(m.rolle)) in ('admin', 'bandleder')
-    );
+    and m.user_id is not null;
 $$;
 
 create or replace function public.push_vapid_public_key()
@@ -122,7 +114,7 @@ set search_path = public
 as $$
 begin
   if auth.uid() is null or not public.can_receive_band_push() then
-    raise exception 'Bare bandleder eller admin kan slå på varsler.';
+    raise exception 'Du er ikke med i et band.';
   end if;
   if p_endpoint is null or p_endpoint !~ '^https://' or btrim(p_p256dh) = '' or btrim(p_auth) = '' then
     raise exception 'Ugyldig push-abonnement.';

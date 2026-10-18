@@ -250,8 +250,8 @@ class _AdminCalendarPageState extends State<AdminCalendarPage> {
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
           initialValue: _artistId,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppColors.ink),
-          decoration: const InputDecoration(labelText: 'Artist'),
+          style: portalFieldStyle,
+          decoration: fieldDecoration(label: 'Artist'),
           items: [
             for (final artist in _artists)
               DropdownMenuItem(value: artist.id, child: Text(artist.name)),

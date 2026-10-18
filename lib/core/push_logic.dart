@@ -11,8 +11,9 @@ bool isBandLeader({required bool isLeader, required String role}) {
   return isLeader || role.trim().toLowerCase() == 'bandleder';
 }
 
+/// Alle bandmedlemmer kan motta varsler i artistportalen.
 bool receivesBandPush({required bool isLeader, required String role}) {
-  return isBandLeader(isLeader: isLeader, role: role);
+  return true;
 }
 
 List<String> bandLeaderEmails(Iterable<({bool isLeader, String role, String email})> members) {

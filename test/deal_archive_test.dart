@@ -10,15 +10,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import 'demo_fixtures.dart';
+
 void main() {
   test('confirmDeal can confirm a declined deal anyway', () async {
     final repository = DemoPortalRepository(clock: () => DateTime(2026, 10, 15));
-    await repository.signInAdmin(
-      username: DemoCatalog.adminUsername,
-      password: DemoCatalog.adminPassword,
+    final seeded = await seedPendingOffer(
+      repository,
+      date: DateTime(2026, 11, 5),
     );
-    final offerId =
-        (await repository.fetchDeals()).firstWhere((deal) => deal.withArtist).id;
+    final offerId = seeded.id;
 
     await repository.signInArtist(
       email: DemoCatalog.artistEmail,
@@ -45,12 +46,11 @@ void main() {
 
   test('archived declined offers disappear from the artist portal', () async {
     final repository = DemoPortalRepository(clock: () => DateTime(2026, 10, 15));
-    await repository.signInAdmin(
-      username: DemoCatalog.adminUsername,
-      password: DemoCatalog.adminPassword,
+    final seeded = await seedPendingOffer(
+      repository,
+      date: DateTime(2026, 11, 6),
     );
-    final offerId =
-        (await repository.fetchDeals()).firstWhere((deal) => deal.withArtist).id;
+    final offerId = seeded.id;
 
     await repository.signInArtist(
       email: DemoCatalog.artistEmail,
@@ -88,12 +88,11 @@ void main() {
 
   test('unarchiveDeal restores declined deal to forespørsler', () async {
     final repository = DemoPortalRepository(clock: () => DateTime(2026, 10, 15));
-    await repository.signInAdmin(
-      username: DemoCatalog.adminUsername,
-      password: DemoCatalog.adminPassword,
+    final seeded = await seedPendingOffer(
+      repository,
+      date: DateTime(2026, 11, 7),
     );
-    final offerId =
-        (await repository.fetchDeals()).firstWhere((deal) => deal.withArtist).id;
+    final offerId = seeded.id;
 
     await repository.signInArtist(
       email: DemoCatalog.artistEmail,
@@ -130,12 +129,11 @@ void main() {
 
   test('archiveDeal moves declined deals out of forespørsler', () async {
     final repository = DemoPortalRepository(clock: () => DateTime(2026, 10, 15));
-    await repository.signInAdmin(
-      username: DemoCatalog.adminUsername,
-      password: DemoCatalog.adminPassword,
+    final seeded = await seedPendingOffer(
+      repository,
+      date: DateTime(2026, 11, 8),
     );
-    final active = await repository.fetchDeals();
-    final offerId = active.firstWhere((deal) => deal.withArtist).id;
+    final offerId = seeded.id;
 
     await repository.signInArtist(
       email: DemoCatalog.artistEmail,
@@ -165,12 +163,11 @@ void main() {
     tester,
   ) async {
     final repository = DemoPortalRepository(clock: () => DateTime(2026, 10, 15));
-    await repository.signInAdmin(
-      username: DemoCatalog.adminUsername,
-      password: DemoCatalog.adminPassword,
+    final seeded = await seedPendingOffer(
+      repository,
+      date: DateTime(2026, 11, 9),
     );
-    final offerId =
-        (await repository.fetchDeals()).firstWhere((deal) => deal.withArtist).id;
+    final offerId = seeded.id;
 
     await repository.signInArtist(
       email: DemoCatalog.artistEmail,

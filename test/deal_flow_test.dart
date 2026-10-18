@@ -53,7 +53,7 @@ void main() {
     );
     final before = await repository.fetchDeals();
     final inquiry = before.singleWhere((deal) => deal.venue.contains('Tromsø'));
-    expect(before.any((deal) => deal.id == 'booking-demo-inquiry' && deal.inquiry), isTrue);
+    expect(inquiry.inquiry, isTrue);
     final offersBefore = await repository.fetchMyOffers();
     expect(offersBefore.every((offer) => offer.venue != inquiry.venue), isTrue);
 
@@ -69,6 +69,26 @@ void main() {
     expect(offer.deadline, offerReplyDeadline(clock));
 
     await repository.respondToOffer(offerId: offer.id, approve: true);
+    final crewInvite = await repository.inviteMember(
+      email: 'crew@lavdi.no',
+      role: 'Musiker',
+    );
+    await repository.acceptInvite(crewInvite.token);
+    await repository.saveMyProfile(
+      name: 'Sigrid Holm',
+      role: 'Musiker',
+      phone: '900 20 020',
+      food: 'Glutenfri.',
+      personalTech: 'Trådløs gitar.',
+    );
+    await repository.signInArtist(
+      email: DemoCatalog.artistEmail,
+      password: DemoCatalog.artistPassword,
+    );
+    await repository.signInAdmin(
+      username: DemoCatalog.adminUsername,
+      password: DemoCatalog.adminPassword,
+    );
     await repository.confirmDeal(inquiry.id);
 
     final confirmed = (await repository.fetchDeals()).singleWhere(

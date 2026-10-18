@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/errors.dart';
 import '../../core/portal_scope.dart';
@@ -19,6 +20,7 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
   Object? _error;
   List<Artist> _artists = const [];
   final Set<String> _saving = {};
+  String? _openingId;
 
   @override
   void initState() {
@@ -35,7 +37,8 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
       _error = null;
     });
     try {
-      final artists = await PortalScope.of(context).repository.fetchAdminArtists();
+      final artists =
+          await PortalScope.of(context).repository.fetchAdminArtists();
       artists.sort((a, b) => a.name.compareTo(b.name));
       if (!mounted) return;
       setState(() {
@@ -83,6 +86,24 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
     }
   }
 
+  Future<void> _openPortal(Artist artist) async {
+    if (_openingId != null) return;
+    setState(() {
+      _openingId = artist.id;
+      _error = null;
+    });
+    try {
+      await PortalScope.of(context).repository.openArtistPortalAsAdmin(artist.id);
+      if (!mounted) return;
+      context.go('/min-side');
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _openingId = null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -91,7 +112,7 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
       body: ListView(
         children: [
           PageFrame(
-            maxWidth: 720,
+            maxWidth: 820,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -103,7 +124,7 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Skjul en artistside for å ta den bort fra forsiden og direkte lenker. Publiser den igjen når den skal være synlig.',
+                  'Publiser eller skjul artistsider på forsiden, og åpne artistportalen direkte uten å logge inn på nytt.',
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: AppColors.onImage,
                   ),
@@ -141,10 +162,13 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
                           for (var i = 0; i < _artists.length; i++) ...[
                             if (i > 0)
                               const Divider(height: 1, color: AppColors.line),
-                            _ArtistPublishRow(
+                            _ArtistAdminRow(
                               artist: _artists[i],
                               busy: _saving.contains(_artists[i].id),
-                              onChanged: (value) => _toggle(_artists[i], value),
+                              opening: _openingId == _artists[i].id,
+                              onChanged: (value) =>
+                                  _toggle(_artists[i], value),
+                              onOpenPortal: () => _openPortal(_artists[i]),
                             ),
                           ],
                         ],
@@ -161,52 +185,104 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
   }
 }
 
-class _ArtistPublishRow extends StatelessWidget {
-  const _ArtistPublishRow({
+class _ArtistAdminRow extends StatelessWidget {
+  const _ArtistAdminRow({
     required this.artist,
     required this.busy,
+    required this.opening,
     required this.onChanged,
+    required this.onOpenPortal,
   });
 
   final Artist artist;
   final bool busy;
+  final bool opening;
   final ValueChanged<bool> onChanged;
+  final VoidCallback onOpenPortal;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stacked = constraints.maxWidth < 560;
+          final publish = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                artist.published ? 'Publisert' : 'Avpublisert',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.muted,
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (busy)
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Switch.adaptive(
+                  value: artist.published,
+                  onChanged: onChanged,
+                  activeThumbColor: AppColors.ink,
+                ),
+            ],
+          );
+          final openButton = TextButton(
+            onPressed: opening ? null : onOpenPortal,
+            child: Text(
+              opening ? 'Åpner…' : 'Åpne artistportal',
+            ),
+          );
+          if (stacked) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(artist.name, style: theme.textTheme.titleMedium),
-                const SizedBox(height: 2),
-                Text(
-                  artist.published ? 'Synlig på forsiden' : 'Skjult',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.muted,
+                if (artist.tagline.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    artist.tagline,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.muted,
+                    ),
                   ),
-                ),
+                ],
+                const SizedBox(height: 8),
+                publish,
+                openButton,
               ],
-            ),
-          ),
-          if (busy)
-            const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            Switch.adaptive(
-              value: artist.published,
-              onChanged: onChanged,
-              activeThumbColor: AppColors.ink,
-            ),
-        ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(artist.name, style: theme.textTheme.titleMedium),
+                    if (artist.tagline.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        artist.tagline,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.muted,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              publish,
+              const SizedBox(width: 8),
+              openButton,
+            ],
+          );
+        },
       ),
     );
   }

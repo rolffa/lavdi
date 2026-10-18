@@ -324,6 +324,7 @@ declare
   required_key text;
   clock_value text;
   payload jsonb;
+  required_keys text[] := array['get_in', 'lydprove', 'get_in_show', 'showstart', 'curfew'];
 begin
   if p_token is null or length(trim(p_token)) = 0 then
     raise exception 'Fant ingen jobb for denne lenken';
@@ -337,7 +338,7 @@ begin
     raise exception 'Overnattingssted mangler';
   end if;
 
-  foreach required_key in array ['get_in', 'lydprove', 'get_in_show', 'showstart', 'curfew']
+  foreach required_key in array required_keys
   loop
     clock_value := p_produksjon->>required_key;
     if clock_value is null or clock_value !~ '^\d{2}:\d{2}$' then
@@ -770,6 +771,19 @@ as $$
   );
 $$;
 
+create or replace function public.is_band_member()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.band_members
+    where user_id = auth.uid()
+  );
+$$;
+
 create or replace function public.attach_band_leader()
 returns void
 language plpgsql
@@ -843,8 +857,8 @@ declare
   v_token text;
   v_id uuid;
 begin
-  if not public.is_band_leader() then
-    raise exception 'Bare bandlederen kan invitere.';
+  if not public.is_band_member() then
+    raise exception 'Du er ikke med i et band.';
   end if;
   if v_email is null or position('@' in v_email) = 0 then
     raise exception 'Oppgi en gyldig e-postadresse.';
@@ -978,6 +992,7 @@ revoke all on function public.current_artist_id() from public, anon;
 revoke all on function public.artist_me() from public, anon;
 revoke all on function public.current_band_id() from public;
 revoke all on function public.is_band_leader() from public;
+revoke all on function public.is_band_member() from public;
 revoke all on function public.attach_band_leader() from public;
 revoke all on function public.create_band(text, text) from public;
 revoke all on function public.invite_band_member(text, text) from public;
@@ -989,6 +1004,7 @@ grant execute on function public.current_artist_id() to authenticated;
 grant execute on function public.artist_me() to authenticated;
 grant execute on function public.current_band_id() to authenticated;
 grant execute on function public.is_band_leader() to authenticated;
+grant execute on function public.is_band_member() to authenticated;
 grant execute on function public.attach_band_leader() to authenticated;
 grant execute on function public.create_band(text, text) to authenticated;
 grant execute on function public.invite_band_member(text, text) to authenticated;
@@ -1006,10 +1022,11 @@ for select to authenticated
 using (id = public.current_band_id());
 
 drop policy if exists bands_leader_update on public.bands;
-create policy bands_leader_update on public.bands
+drop policy if exists bands_member_update on public.bands;
+create policy bands_member_update on public.bands
 for update to authenticated
-using (id = public.current_band_id() and public.is_band_leader())
-with check (id = public.current_band_id() and public.is_band_leader());
+using (id = public.current_band_id() and public.is_band_member())
+with check (id = public.current_band_id() and public.is_band_member());
 
 drop policy if exists band_members_read on public.band_members;
 create policy band_members_read on public.band_members
@@ -1023,14 +1040,16 @@ using (user_id = auth.uid())
 with check (user_id = auth.uid() and band_id = public.current_band_id());
 
 drop policy if exists band_invites_leader_read on public.band_invites;
-create policy band_invites_leader_read on public.band_invites
+drop policy if exists band_invites_member_read on public.band_invites;
+create policy band_invites_member_read on public.band_invites
 for select to authenticated
-using (band_id = public.current_band_id() and public.is_band_leader());
+using (band_id = public.current_band_id() and public.is_band_member());
 
 drop policy if exists band_invites_leader_delete on public.band_invites;
-create policy band_invites_leader_delete on public.band_invites
+drop policy if exists band_invites_member_delete on public.band_invites;
+create policy band_invites_member_delete on public.band_invites
 for delete to authenticated
-using (band_id = public.current_band_id() and public.is_band_leader() and accepted_at is null);
+using (band_id = public.current_band_id() and public.is_band_member() and accepted_at is null);
 
 grant select, update on table public.bands to authenticated;
 grant select on table public.band_members to authenticated;
@@ -1282,34 +1301,37 @@ using (
 );
 
 drop policy if exists stage_plots_leader_insert on storage.objects;
-create policy stage_plots_leader_insert on storage.objects
+drop policy if exists stage_plots_member_insert on storage.objects;
+create policy stage_plots_member_insert on storage.objects
 for insert to authenticated
 with check (
   bucket_id = 'stage-plots'
-  and public.is_band_leader()
+  and public.is_band_member()
   and (storage.foldername(name))[1] = public.current_band_id()::text
 );
 
 drop policy if exists stage_plots_leader_update on storage.objects;
-create policy stage_plots_leader_update on storage.objects
+drop policy if exists stage_plots_member_update on storage.objects;
+create policy stage_plots_member_update on storage.objects
 for update to authenticated
 using (
   bucket_id = 'stage-plots'
-  and public.is_band_leader()
+  and public.is_band_member()
   and (storage.foldername(name))[1] = public.current_band_id()::text
 )
 with check (
   bucket_id = 'stage-plots'
-  and public.is_band_leader()
+  and public.is_band_member()
   and (storage.foldername(name))[1] = public.current_band_id()::text
 );
 
 drop policy if exists stage_plots_leader_delete on storage.objects;
-create policy stage_plots_leader_delete on storage.objects
+drop policy if exists stage_plots_member_delete on storage.objects;
+create policy stage_plots_member_delete on storage.objects
 for delete to authenticated
 using (
   bucket_id = 'stage-plots'
-  and public.is_band_leader()
+  and public.is_band_member()
   and (storage.foldername(name))[1] = public.current_band_id()::text
 );
 
@@ -1777,10 +1799,6 @@ as $$
     select 1
     from public.band_members m
     where m.user_id = auth.uid()
-      and (
-        m.er_leder
-        or lower(btrim(m.rolle)) in ('admin', 'bandleder')
-      )
   );
 $$;
 
@@ -1795,11 +1813,7 @@ as $$
   from public.band_members m
   join public.bands b on b.id = m.band_id
   where b.artist_id = p_artist_id
-    and m.user_id is not null
-    and (
-      m.er_leder
-      or lower(btrim(m.rolle)) in ('admin', 'bandleder')
-    );
+    and m.user_id is not null;
 $$;
 
 create or replace function public.push_vapid_public_key()
@@ -1824,7 +1838,7 @@ set search_path = public
 as $$
 begin
   if auth.uid() is null or not public.can_receive_band_push() then
-    raise exception 'Bare bandleder eller admin kan slå på varsler.';
+    raise exception 'Du er ikke med i et band.';
   end if;
   if p_endpoint is null or p_endpoint !~ '^https://' or btrim(p_p256dh) = '' or btrim(p_auth) = '' then
     raise exception 'Ugyldig push-abonnement.';

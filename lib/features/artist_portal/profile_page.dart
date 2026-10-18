@@ -100,6 +100,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                     required String phone,
                                     required String food,
                                     required String personalTech,
+                                    String? password,
                                   }) async {
                                     await PortalScope.of(context).repository
                                         .saveMyProfile(

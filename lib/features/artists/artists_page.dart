@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/brand.dart';
 import '../../core/errors.dart';
 import '../../core/portal_scope.dart';
 import '../../core/theme.dart';
@@ -85,13 +84,6 @@ class _ArtistsPageState extends State<ArtistsPage> {
                 const Text('Ingen artister er lagt inn ennå.')
               else
                 _ArtistGrid(artists: artists),
-              const SizedBox(height: 48),
-              Text(
-                Brand.name,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.onImageMuted,
-                ),
-              ),
             ],
           ),
         ),

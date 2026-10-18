@@ -193,7 +193,8 @@ class _AdminOfferPageState extends State<AdminOfferPage> {
                   children: [
                     DropdownButtonFormField<String>(
                       initialValue: _artistId,
-                      decoration: const InputDecoration(labelText: 'Artist'),
+                      style: portalFieldStyle,
+                      decoration: fieldDecoration(label: 'Artist'),
                       items: [
                         for (final artist in _artists)
                           DropdownMenuItem(
@@ -213,29 +214,27 @@ class _AdminOfferPageState extends State<AdminOfferPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
+                    PortalTextFormField(
                       controller: _venueController,
-                      decoration: const InputDecoration(labelText: 'Spillested'),
+                      label: 'Spillested',
                       textCapitalization: TextCapitalization.sentences,
                       validator: (value) => value == null || value.trim().isEmpty
                           ? 'Skriv spillested'
                           : null,
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
+                    PortalTextFormField(
                       controller: _organizerController,
-                      decoration: const InputDecoration(labelText: 'Arrangør'),
+                      label: 'Arrangør',
                       textCapitalization: TextCapitalization.words,
                       validator: (value) => value == null || value.trim().isEmpty
                           ? 'Skriv arrangør'
                           : null,
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
+                    PortalTextFormField(
                       controller: _feeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Honorar i kroner',
-                      ),
+                      label: 'Honorar i kroner',
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       validator: (value) {
@@ -245,21 +244,16 @@ class _AdminOfferPageState extends State<AdminOfferPage> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
+                    PortalTextFormField(
                       controller: _messageController,
-                      decoration: const InputDecoration(
-                        labelText: 'Melding til artisten',
-                      ),
+                      label: 'Melding til artisten',
                       minLines: 3,
                       maxLines: 5,
                       textCapitalization: TextCapitalization.sentences,
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: 12),
-                      Text(
-                        _error!,
-                        style: const TextStyle(color: AppColors.busy),
-                      ),
+                      FieldError(_error!),
                     ],
                     if (_message != null) ...[
                       const SizedBox(height: 12),

@@ -345,9 +345,10 @@ class _ProductionFormState extends State<_ProductionForm> {
             const _SectionLabel('Arrangement'),
             TextFormField(
               controller: _eventName,
+              style: portalFieldStyle,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Arrangementsnavn / festivalnavn',
+              decoration: fieldDecoration(
+                label: 'Arrangementsnavn / festivalnavn',
               ),
               validator: (value) =>
                   requiredField(value, 'Oppgi arrangementsnavn'),
@@ -356,38 +357,43 @@ class _ProductionFormState extends State<_ProductionForm> {
             const _SectionLabel('Reise og overnatting'),
             TextFormField(
               controller: _accommodationName,
+              style: portalFieldStyle,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Overnattingssted'),
+              decoration: fieldDecoration(label: 'Overnattingssted'),
               validator: (value) =>
                   requiredField(value, 'Oppgi overnattingssted'),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _accommodationAddress,
+              style: portalFieldStyle,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'Adresse'),
+              decoration: fieldDecoration(label: 'Adresse'),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _airport,
+              style: portalFieldStyle,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Nærmeste flyplass'),
+              decoration: fieldDecoration(label: 'Nærmeste flyplass'),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _distance,
+              style: portalFieldStyle,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Avstand fra flyplass til spillested',
+              decoration: fieldDecoration(
+                label: 'Avstand fra flyplass til spillested',
               ),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _route,
+              style: portalFieldStyle,
               textCapitalization: TextCapitalization.sentences,
               minLines: 2,
               maxLines: 4,
-              decoration: const InputDecoration(labelText: 'Mer info'),
+              decoration: fieldDecoration(label: 'Mer info'),
             ),
             const SizedBox(height: 28),
             const _SectionLabel('Tider'),
@@ -468,38 +474,43 @@ class _ProductionFormState extends State<_ProductionForm> {
             if (!_dinnerAtStay) ...[
               TextFormField(
                 controller: _dinnerVenue,
+                style: portalFieldStyle,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Restaurant'),
+                decoration: fieldDecoration(label: 'Restaurant'),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _dinnerAddress,
+                style: portalFieldStyle,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(labelText: 'Adresse'),
+                decoration: fieldDecoration(label: 'Adresse'),
               ),
             ],
             const SizedBox(height: 28),
             const _SectionLabel('Tekniker'),
             TextFormField(
               controller: _technicianName,
+              style: portalFieldStyle,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Teknisk ansvarlig'),
+              decoration: fieldDecoration(label: 'Teknisk ansvarlig'),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _technicianPhone,
+              style: portalFieldStyle,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'Telefon'),
+              decoration: fieldDecoration(label: 'Telefon'),
             ),
             const SizedBox(height: 28),
             const _SectionLabel('Merknader'),
             TextFormField(
               controller: _notes,
+              style: portalFieldStyle,
               textCapitalization: TextCapitalization.sentences,
               minLines: 4,
               maxLines: 8,
-              decoration: const InputDecoration(
-                labelText: 'Merknader til artist / band',
+              decoration: fieldDecoration(
+                label: 'Merknader til artist / band',
               ),
             ),
             if (_error != null) ...[
@@ -553,14 +564,16 @@ class _ProductionFormState extends State<_ProductionForm> {
             onChanged(picked);
           },
           child: InputDecorator(
-            decoration: InputDecoration(
-              labelText: label,
+            decoration: fieldDecoration(
+              label: label,
               helperText: helper,
-              helperStyle: const TextStyle(color: AppColors.muted),
               errorText: state.errorText,
             ),
             isEmpty: shown == null,
-            child: Text(shown == null ? '' : formatClock(shown)),
+            child: Text(
+              shown == null ? '' : formatClock(shown),
+              style: portalFieldStyle,
+            ),
           ),
         );
       },

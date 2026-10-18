@@ -73,11 +73,11 @@ set search_path = public
 as $$
 declare
   artist_navn text;
-  gig_id uuid;
+  v_gig_id uuid;
   crew jsonb;
 begin
   select navn into artist_navn from public.artists where id = p_booking.artist_id;
-  select id into gig_id from public.gigs where booking_id = p_booking.id;
+  select id into v_gig_id from public.gigs where booking_id = p_booking.id;
   select coalesce(jsonb_agg(
     jsonb_build_object(
       'member_id', c.id,
@@ -95,7 +95,7 @@ begin
   ), '[]'::jsonb)
   into crew
   from public.gig_crew_travel c
-  where c.gig_id = gig_id;
+  where c.gig_id = v_gig_id;
 
   return jsonb_build_object(
     'id', p_booking.id,
@@ -116,7 +116,7 @@ begin
     'sendt_artist_at', p_booking.sendt_artist_at,
     'svarfrist', p_booking.svarfrist,
     'admin_signert_at', p_booking.admin_signert_at,
-    'gig_id', gig_id,
+    'gig_id', v_gig_id,
     'reise_token', coalesce(p_booking.reise_token, ''),
     'dag_token', coalesce(p_booking.dag_token, ''),
     'presse_klar', p_booking.presse_klar,
@@ -336,7 +336,7 @@ set search_path = public
 as $$
 declare
   booking public.bookings%rowtype;
-  gig_id uuid;
+  v_gig_id uuid;
   artist_navn text;
 begin
   if not public.admin_check_pin(p_pin) then
@@ -363,22 +363,22 @@ begin
   where booking_id = booking.id
     and status in ('pending', 'declined');
 
-  select id into gig_id from public.gigs where booking_id = booking.id;
-  if gig_id is null then
+  select id into v_gig_id from public.gigs where booking_id = booking.id;
+  if v_gig_id is null then
     raise exception 'Konserten ble ikke opprettet';
   end if;
 
   select navn into artist_navn from public.artists where id = booking.artist_id;
 
   insert into public.gig_crew_travel (gig_id, member_id, navn, rolle, er_leder)
-  select gig_id, m.id, m.navn, m.rolle, m.er_leder
+  select v_gig_id, m.id, m.navn, m.rolle, m.er_leder
   from public.band_members m
   join public.bands b on b.id = m.band_id
   where b.artist_id = booking.artist_id;
 
   if not found then
     insert into public.gig_crew_travel (gig_id, navn, rolle, er_leder)
-    values (gig_id, coalesce(artist_navn, 'Artist'), 'Artist', true);
+    values (v_gig_id, coalesce(artist_navn, 'Artist'), 'Artist', true);
   end if;
 end;
 $$;
@@ -903,9 +903,8 @@ begin
     join public.gigs g on g.artist_id = b.artist_id
     where g.id = p_gig_id
       and m.user_id = auth.uid()
-      and m.er_leder
   ) then
-    raise exception 'Bare bandlederen kan endre hvem som er med';
+    raise exception 'Du er ikke med i et band.';
   end if;
   if not coalesce(p_active, false) and (
     select count(*) from public.gig_crew_travel

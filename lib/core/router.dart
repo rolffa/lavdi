@@ -1,10 +1,12 @@
 import 'package:go_router/go_router.dart';
 
+import '../features/admin/admin_account_page.dart';
 import '../features/admin/admin_archive_page.dart';
 import '../features/admin/admin_artists_page.dart';
 import '../features/admin/admin_calendar_page.dart';
 import '../features/admin/admin_desk_page.dart';
 import '../features/admin/admin_offer_page.dart';
+import '../features/artist_portal/artist_account_page.dart';
 import '../features/artist/artist_page.dart';
 import '../features/artist/public_press_page.dart';
 import '../core/rider_text.dart';
@@ -81,6 +83,10 @@ final appRouter = GoRouter(
           builder: (context, state) => const ProfilePage(),
         ),
         GoRoute(
+          path: 'konto',
+          builder: (context, state) => const ArtistAccountPage(),
+        ),
+        GoRoute(
           path: 'invitasjon/:token',
           builder: (context, state) => InvitePage(token: state.pathParameters['token']!),
         ),
@@ -123,6 +129,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/admin/tilbud',
       builder: (context, state) => const AdminOfferPage(),
+    ),
+    GoRoute(
+      path: '/admin/konto',
+      builder: (context, state) => const AdminAccountPage(),
     ),
     GoRoute(
       path: '/arrangor/reise/:token',

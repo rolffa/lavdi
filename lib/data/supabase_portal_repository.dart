@@ -26,11 +26,12 @@ import '../models/stage_plot.dart';
 import '../models/venue_note.dart';
 import 'portal_repository.dart';
 
-class SupabasePortalRepository implements PortalRepository {
+class SupabasePortalRepository extends PortalRepository {
   SupabasePortalRepository(this._client);
 
   final SupabaseClient _client;
   final StreamController<PushNotice> _pushNotices = StreamController<PushNotice>.broadcast();
+  ArtistSession? _adminViewAsArtist;
 
   static const _artistColumns =
       'id, navn, tagline, bio, bilde_url, video_url, spotify_uri, minstepris, publisert';
@@ -182,9 +183,17 @@ class SupabasePortalRepository implements PortalRepository {
 
   bool _adminSignedIn = false;
   String? _adminSecret;
+  String _adminUsername = '';
+  String _adminAuthEmail = '';
 
   @override
   bool get isAdminSignedIn => _adminSignedIn;
+
+  @override
+  String get adminUsername => _adminUsername;
+
+  @override
+  String get adminAuthEmail => _adminAuthEmail;
 
   @override
   Future<void> signInAdmin({required String username, required String password}) async {
@@ -194,14 +203,373 @@ class SupabasePortalRepository implements PortalRepository {
     }
     final ok = await _adminPasswordMatches(name, password);
     if (!ok) throw PortalException('Feil brukernavn eller passord');
+
+    var email = DemoCatalog.adminEmail;
+    try {
+      final ensured = await _client.rpc(
+        'admin_ensure_auth',
+        params: {'p_username': name, 'p_password': password},
+      );
+      if (ensured is Map) {
+        final value = (ensured['email'] as String?)?.trim();
+        if (value != null && value.contains('@')) email = value;
+      }
+    } on PostgrestException catch (error) {
+      if (error.code != 'PGRST202' && !error.message.contains('admin_ensure_auth')) {
+        throw _adminError(error);
+      }
+    }
+
+    try {
+      await _client.auth.signInWithPassword(email: email, password: password);
+    } on AuthException {
+      // PIN-innlogging er OK; Auth synces når admin_auth.sql er kjørt.
+    }
+
     _adminSecret = password;
+    _adminUsername = name;
+    _adminAuthEmail = email;
     _adminSignedIn = true;
   }
 
   @override
   void signOutAdmin() {
+    final email = _client.auth.currentUser?.email?.toLowerCase();
+    final adminEmail = _adminAuthEmail.toLowerCase();
+    final pin = _adminSecret;
     _adminSecret = null;
+    _adminUsername = '';
+    _adminAuthEmail = '';
     _adminSignedIn = false;
+    _adminViewAsArtist = null;
+    if (pin != null && _client.auth.currentSession != null) {
+      // ignore: discarded_futures
+      _client.rpc('admin_close_artist_view', params: {'p_pin': pin}).catchError((_) {});
+    }
+    if (email != null && email.isNotEmpty && email == adminEmail) {
+      // ignore: discarded_futures
+      _client.auth.signOut();
+    }
+    notifyListeners();
+  }
+
+  @override
+  ArtistSession? get adminViewAsArtist => _adminViewAsArtist;
+
+  Future<void> _ensureAdminAuthSession() async {
+    if (_client.auth.currentSession != null) return;
+    final email = _adminAuthEmail.trim();
+    final password = _adminSecret;
+    if (email.isEmpty || password == null || password.isEmpty) {
+      throw PortalException(
+        'Admin Auth mangler. Logg ut og inn igjen, eller kjør supabase/admin_auth.sql.',
+      );
+    }
+    try {
+      await _client.auth.signInWithPassword(email: email, password: password);
+    } on AuthException {
+      throw PortalException(
+        'Kunne ikke åpne artistportal. Sjekk at admin Auth er satt opp.',
+      );
+    }
+  }
+
+  @override
+  Future<ArtistSession> openArtistPortalAsAdmin(String artistId) async {
+    final pin = _requireAdmin();
+    await _ensureAdminAuthSession();
+    try {
+      final result = await _client.rpc(
+        'admin_open_artist_view',
+        params: {'p_pin': pin, 'p_artist_id': artistId},
+      );
+      if (result is! Map) {
+        throw PortalException('Kunne ikke åpne artistportalen.');
+      }
+      final json = Map<String, dynamic>.from(result);
+      final session = ArtistSession(
+        artistId: json['artist_id'] as String,
+        artistName: json['navn'] as String,
+        email: (json['epost'] as String?) ?? _adminAuthEmail,
+        asAdmin: true,
+      );
+      _adminViewAsArtist = session;
+      notifyListeners();
+      return session;
+    } on PostgrestException catch (error) {
+      throw _adminError(error);
+    }
+  }
+
+  @override
+  Future<void> closeArtistPortalAsAdmin() async {
+    final pin = _requireAdmin();
+    try {
+      if (_client.auth.currentSession != null) {
+        await _client.rpc('admin_close_artist_view', params: {'p_pin': pin});
+      }
+    } on PostgrestException catch (error) {
+      if (error.code != 'PGRST202') throw _adminError(error);
+    }
+    _adminViewAsArtist = null;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> changeAdminPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final pin = _requireAdmin();
+    if (currentPassword != pin) {
+      throw PortalException('Nåværende passord er feil');
+    }
+    if (newPassword.trim().length < 6) {
+      throw PortalException('Nytt passord må være minst 6 tegn');
+    }
+    final next = newPassword.trim();
+    try {
+      await _client.rpc(
+        'admin_change_password',
+        params: {
+          'p_username': _adminUsername,
+          'p_old': currentPassword,
+          'p_new': next,
+        },
+      );
+    } on PostgrestException catch (error) {
+      throw _adminError(error);
+    }
+
+    try {
+      if (_client.auth.currentSession != null) {
+        await _client.auth.updateUser(UserAttributes(password: next));
+      } else if (_adminAuthEmail.contains('@')) {
+        await _client.auth.signInWithPassword(
+          email: _adminAuthEmail,
+          password: next,
+        );
+      }
+    } on AuthException {
+      // PIN / Auth-hash er oppdatert i SQL; session synces ved neste login.
+    }
+
+    _adminSecret = next;
+  }
+
+  String _publicAvatarUrl(String path) {
+    if (path.isEmpty) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    return _client.storage.from('avatars').getPublicUrl(path);
+  }
+
+  @override
+  Future<String?> fetchAdminAvatarUrl() async {
+    final pin = _requireAdmin();
+    try {
+      final path = await _client.rpc('admin_avatar_url', params: {'p_pin': pin});
+      final value = (path as String?)?.trim() ?? '';
+      if (value.isEmpty) return null;
+      return _publicAvatarUrl(value);
+    } on PostgrestException catch (error) {
+      throw _adminError(error);
+    }
+  }
+
+  @override
+  Future<String> uploadAdminAvatar({
+    required String filename,
+    required Uint8List bytes,
+  }) async {
+    final pin = _requireAdmin();
+    final ext = filename.toLowerCase().endsWith('.png')
+        ? '.png'
+        : filename.toLowerCase().endsWith('.webp')
+            ? '.webp'
+            : '.jpg';
+    final path = 'admin/avatar$ext';
+    final contentType = ext == '.png'
+        ? 'image/png'
+        : ext == '.webp'
+            ? 'image/webp'
+            : 'image/jpeg';
+    try {
+      await _client.storage.from('avatars').uploadBinary(
+        path,
+        bytes,
+        fileOptions: FileOptions(contentType: contentType, upsert: true),
+      );
+      await _client.rpc(
+        'admin_set_avatar',
+        params: {'p_pin': pin, 'p_path': path},
+      );
+    } on StorageException {
+      throw PortalException('Profilbildet kunne ikke lagres.');
+    } on PostgrestException catch (error) {
+      throw _adminError(error);
+    }
+    return _publicAvatarUrl(path);
+  }
+
+  @override
+  Future<void> changeArtistPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final session = _client.auth.currentSession;
+    final email = session?.user.email?.trim() ?? '';
+    if (session == null || email.isEmpty) {
+      throw PortalException('Logg inn på nytt');
+    }
+    if (newPassword.trim().length < 6) {
+      throw PortalException('Nytt passord må være minst 6 tegn');
+    }
+    try {
+      await _client.auth.signInWithPassword(
+        email: email,
+        password: currentPassword,
+      );
+      await _client.auth.updateUser(
+        UserAttributes(password: newPassword.trim()),
+      );
+    } on AuthException {
+      throw PortalException('Nåværende passord er feil');
+    }
+  }
+
+  @override
+  Future<void> setArtistPassword(String password) async {
+    if (_client.auth.currentSession == null) {
+      throw PortalException('Logg inn på nytt');
+    }
+    if (password.trim().length < 6) {
+      throw PortalException('Passordet må være minst 6 tegn');
+    }
+    try {
+      await _client.auth.updateUser(
+        UserAttributes(password: password.trim()),
+      );
+    } on AuthException {
+      throw PortalException('Passordet kunne ikke lagres. Prøv igjen.');
+    }
+  }
+
+  @override
+  Future<String?> fetchMyAvatarUrl() async {
+    try {
+      final path = await _client.rpc('my_avatar_path');
+      final value = (path as String?)?.trim() ?? '';
+      if (value.isEmpty) return null;
+      return _publicAvatarUrl(value);
+    } on PostgrestException catch (error) {
+      final message = error.message.trim();
+      if (message.isNotEmpty) throw PortalException(message);
+      throw PortalException('Profilbildet kunne ikke hentes.');
+    }
+  }
+
+  @override
+  Future<String> uploadMyAvatar({
+    required String filename,
+    required Uint8List bytes,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw PortalException('Logg inn på nytt');
+    final ext = filename.toLowerCase().endsWith('.png')
+        ? '.png'
+        : filename.toLowerCase().endsWith('.webp')
+            ? '.webp'
+            : '.jpg';
+    final path = '$userId/avatar$ext';
+    final contentType = ext == '.png'
+        ? 'image/png'
+        : ext == '.webp'
+            ? 'image/webp'
+            : 'image/jpeg';
+    try {
+      await _client.storage.from('avatars').uploadBinary(
+        path,
+        bytes,
+        fileOptions: FileOptions(contentType: contentType, upsert: true),
+      );
+      await _client.rpc('set_my_avatar', params: {'p_path': path});
+    } on StorageException {
+      throw PortalException('Profilbildet kunne ikke lagres.');
+    } on PostgrestException catch (error) {
+      final message = error.message.trim();
+      if (message.isNotEmpty) throw PortalException(message);
+      throw PortalException('Profilbildet kunne ikke lagres.');
+    }
+    return _publicAvatarUrl(path);
+  }
+
+  @override
+  Future<List<BandMember>> fetchAdminBandAccounts(String artistId) async {
+    final pin = _requireAdmin();
+    try {
+      final result = await _client.rpc(
+        'admin_list_band_accounts',
+        params: {'p_pin': pin, 'p_artist_id': artistId},
+      );
+      if (result is! List) return const [];
+      return [
+        for (final row in result)
+          if (row is Map) BandMember.fromJson(Map<String, dynamic>.from(row)),
+      ];
+    } on PostgrestException catch (error) {
+      throw _adminError(error);
+    }
+  }
+
+  @override
+  Future<BandInvite> adminInviteBandMember({
+    required String artistId,
+    required String email,
+    required String role,
+    bool asLeader = false,
+  }) async {
+    final pin = _requireAdmin();
+    try {
+      final result = await _client.rpc(
+        'admin_invite_band_member',
+        params: {
+          'p_pin': pin,
+          'p_artist_id': artistId,
+          'p_email': email.trim(),
+          'p_rolle': role.trim(),
+          'p_er_leder': asLeader,
+        },
+      );
+      return BandInvite.fromJson(Map<String, dynamic>.from(result as Map));
+    } on PostgrestException catch (error) {
+      throw _adminError(error);
+    }
+  }
+
+  @override
+  Future<void> adminSendPasswordReset(String email) async {
+    _requireAdmin();
+    final address = email.trim();
+    if (!address.contains('@')) {
+      throw PortalException('Oppgi en gyldig e-postadresse.');
+    }
+    try {
+      await _client.auth.resetPasswordForEmail(
+        address,
+        redirectTo: '${Uri.base.origin}/min-side',
+      );
+    } on AuthException {
+      // Fall back to OTP magic link if recovery is not configured.
+      try {
+        await _client.auth.signInWithOtp(
+          email: address,
+          emailRedirectTo: '${Uri.base.origin}/min-side',
+          shouldCreateUser: false,
+        );
+      } on AuthException {
+        throw PortalException('Kunne ikke sende engangskode.');
+      }
+    }
   }
 
   String _requireAdmin() {
@@ -250,8 +618,15 @@ class SupabasePortalRepository implements PortalRepository {
 
   PortalException _adminError(PostgrestException error) {
     if (error.code == 'PGRST202') {
+      final missingAuth = error.message.contains('admin_ensure_auth') ||
+          error.message.contains('admin_change_password');
       return PortalException(
-        'Admin-funksjonen finnes ikke i databasen ennå. Kjør supabase/admin_calendar.sql og supabase/artist_publish.sql.',
+        missingAuth
+            ? 'Admin Auth mangler i databasen. Kjør supabase/admin_auth.sql.'
+            : error.message.contains('admin_open_artist_view') ||
+                    error.message.contains('admin_band_overview')
+                ? 'Admin artistvisning mangler. Kjør supabase/admin_artist_view.sql.'
+                : 'Admin-funksjonen finnes ikke i databasen ennå. Kjør supabase/admin_calendar.sql og supabase/artist_publish.sql.',
       );
     }
     final message = error.message.trim();
@@ -261,6 +636,9 @@ class SupabasePortalRepository implements PortalRepository {
 
   @override
   Future<ArtistSession?> currentArtist() async {
+    if (_adminViewAsArtist != null && _adminSignedIn) {
+      return _adminViewAsArtist;
+    }
     if (_client.auth.currentSession == null) return null;
     return _loadArtist();
   }
@@ -298,6 +676,10 @@ class SupabasePortalRepository implements PortalRepository {
 
   @override
   Future<void> signOutArtist() async {
+    if (_adminViewAsArtist != null && _adminSignedIn) {
+      await closeArtistPortalAsAdmin();
+      return;
+    }
     await _client.auth.signOut();
   }
 
@@ -308,11 +690,15 @@ class SupabasePortalRepository implements PortalRepository {
     final artistId = json['artist_id'] as String?;
     final name = json['navn'] as String?;
     if (artistId == null || name == null) return null;
-    return ArtistSession(
+    final asAdmin = json['as_admin'] as bool? ?? false;
+    final session = ArtistSession(
       artistId: artistId,
       artistName: name,
       email: (json['epost'] as String?) ?? _client.auth.currentUser?.email ?? '',
+      asAdmin: asAdmin || _adminViewAsArtist?.artistId == artistId,
     );
+    if (session.asAdmin) _adminViewAsArtist = session;
+    return session;
   }
 
   Future<ArtistSession> _requireArtist() async {
@@ -426,6 +812,9 @@ class SupabasePortalRepository implements PortalRepository {
   @override
   Future<BandOverview?> fetchMyBand() async {
     if (_client.auth.currentSession == null) return null;
+    if (_adminViewAsArtist != null && _adminSignedIn) {
+      return _fetchAdminBandOverview(_adminViewAsArtist!.artistId);
+    }
     await _client.rpc('attach_band_leader');
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return null;
@@ -435,17 +824,15 @@ class SupabasePortalRepository implements PortalRepository {
     final bandRow = await _client.from('bands').select().eq('id', bandId).single();
     final memberRows = await _client.from('band_members').select().eq('band_id', bandId).order('navn');
     final me = BandMember.fromJson(Map<String, dynamic>.from(mine));
-    final invites = <BandInvite>[];
-    if (me.isLeader) {
-      final inviteRows = await _client
-          .from('band_invites')
-          .select()
-          .eq('band_id', bandId)
-          .isFilter('accepted_at', null);
-      invites.addAll(
-        inviteRows.map((row) => BandInvite.fromJson(Map<String, dynamic>.from(row))),
-      );
-    }
+    final inviteRows = await _client
+        .from('band_invites')
+        .select()
+        .eq('band_id', bandId)
+        .isFilter('accepted_at', null);
+    final invites = [
+      for (final row in inviteRows)
+        BandInvite.fromJson(Map<String, dynamic>.from(row)),
+    ];
     return BandOverview(
       band: Band.fromJson(Map<String, dynamic>.from(bandRow)),
       me: me,
@@ -454,6 +841,60 @@ class SupabasePortalRepository implements PortalRepository {
       ],
       invites: invites,
     );
+  }
+
+  Future<BandOverview?> _fetchAdminBandOverview(String artistId) async {
+    final pin = _requireAdmin();
+    try {
+      final result = await _client.rpc(
+        'admin_band_overview',
+        params: {'p_pin': pin, 'p_artist_id': artistId},
+      );
+      if (result == null) return null;
+      if (result is! Map) return null;
+      final json = Map<String, dynamic>.from(result);
+      final bandJson = json['band'];
+      final meJson = json['me'];
+      if (bandJson is! Map || meJson is! Map) return null;
+      final me = BandMember.fromJson(Map<String, dynamic>.from(meJson));
+      final members = <BandMember>[];
+      final memberRows = json['members'];
+      if (memberRows is List) {
+        for (final row in memberRows) {
+          if (row is Map) {
+            members.add(BandMember.fromJson(Map<String, dynamic>.from(row)));
+          }
+        }
+      }
+      final invites = <BandInvite>[];
+      final inviteRows = json['invites'];
+      if (inviteRows is List) {
+        for (final row in inviteRows) {
+          if (row is Map) {
+            invites.add(BandInvite.fromJson(Map<String, dynamic>.from(row)));
+          }
+        }
+      }
+      return BandOverview(
+        band: Band.fromJson(Map<String, dynamic>.from(bandJson)),
+        me: me,
+        members: members,
+        invites: invites,
+      );
+    } on PostgrestException catch (error) {
+      throw _adminError(error);
+    }
+  }
+
+  @override
+  Future<BandOverview> ensureMyBand() async {
+    final existing = await fetchMyBand();
+    if (existing != null) return existing;
+    final session = await currentArtist();
+    if (session == null) {
+      throw PortalException('Logg inn på nytt.');
+    }
+    return createBand(name: session.artistName, contact: '');
   }
 
   @override
@@ -472,8 +913,8 @@ class SupabasePortalRepository implements PortalRepository {
     required String sharedHospitality,
   }) async {
     final overview = await fetchMyBand();
-    if (overview == null || !overview.me.isLeader) {
-      throw PortalException('Bare bandlederen kan oppdatere bandet.');
+    if (overview == null) {
+      throw PortalException('Du er ikke med i et band.');
     }
     final row = await _client
         .from('bands')
@@ -496,7 +937,7 @@ class SupabasePortalRepository implements PortalRepository {
     required String stageRig,
     required String paRequirements,
   }) async {
-    final overview = await _leaderBand();
+    final overview = await _memberBand();
     final row = await _client
         .from('bands')
         .update({
@@ -537,7 +978,7 @@ class SupabasePortalRepository implements PortalRepository {
     required String filename,
     required Uint8List bytes,
   }) async {
-    final overview = await _leaderBand();
+    final overview = await _memberBand();
     final checked = checkedStagePlot(filename: filename, bytes: bytes);
     final path = '${overview.band.id}/stage-plot${checked.fileExtension}';
     final previous = overview.band.stagePlotPath;
@@ -574,7 +1015,7 @@ class SupabasePortalRepository implements PortalRepository {
 
   @override
   Future<void> clearStagePlot() async {
-    final overview = await _leaderBand();
+    final overview = await _memberBand();
     final path = overview.band.stagePlotPath;
     if (path.isNotEmpty) {
       try {
@@ -593,10 +1034,10 @@ class SupabasePortalRepository implements PortalRepository {
         .eq('id', overview.band.id);
   }
 
-  Future<BandOverview> _leaderBand() async {
+  Future<BandOverview> _memberBand() async {
     final overview = await fetchMyBand();
-    if (overview == null || !overview.me.isLeader) {
-      throw PortalException('Bare bandlederen kan oppdatere rideren.');
+    if (overview == null) {
+      throw PortalException('Du er ikke med i et band.');
     }
     return overview;
   }
@@ -639,7 +1080,32 @@ class SupabasePortalRepository implements PortalRepository {
       'invite_band_member',
       params: {'p_email': email.trim(), 'p_rolle': role.trim()},
     );
-    return BandInvite.fromJson(Map<String, dynamic>.from(result as Map));
+    final invite =
+        BandInvite.fromJson(Map<String, dynamic>.from(result as Map));
+    try {
+      await sendInviteEmail(invite.token);
+    } on PortalException {
+      rethrow;
+    } catch (_) {
+      throw PortalException(
+        'Invitasjonen er opprettet, men e-posten kunne ikke sendes. Prøv «Send e-post på nytt».',
+      );
+    }
+    return invite;
+  }
+
+  @override
+  Future<void> removeMember(String memberId) async {
+    try {
+      await _client.rpc(
+        'remove_band_member',
+        params: {'p_member_id': memberId},
+      );
+    } on PostgrestException catch (error) {
+      final message = error.message.trim();
+      if (message.isNotEmpty) throw PortalException(message);
+      throw PortalException('Kunne ikke fjerne medlemmet.');
+    }
   }
 
   @override
@@ -676,6 +1142,96 @@ class SupabasePortalRepository implements PortalRepository {
     final overview = await fetchMyBand();
     if (overview == null) throw PortalException('Kontoen ble ikke koblet til bandet.');
     return overview.me;
+  }
+
+  @override
+  String? currentAuthEmail() {
+    final email = _client.auth.currentUser?.email?.trim();
+    if (email == null || email.isEmpty) return null;
+    return email;
+  }
+
+  @override
+  Future<String?> waitForAuthEmail({
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
+    await _recoverAuthSessionFromUrl();
+    final existing = currentAuthEmail();
+    if (existing != null) return existing;
+
+    final completer = Completer<String?>();
+    late final StreamSubscription<AuthState> sub;
+    Timer? timer;
+    sub = _client.auth.onAuthStateChange.listen((state) {
+      final email = state.session?.user.email?.trim();
+      if (email != null && email.isNotEmpty && !completer.isCompleted) {
+        completer.complete(email);
+      }
+    });
+    timer = Timer(timeout, () {
+      if (!completer.isCompleted) completer.complete(currentAuthEmail());
+    });
+    try {
+      return await completer.future;
+    } finally {
+      await sub.cancel();
+      timer.cancel();
+    }
+  }
+
+  Future<void> _recoverAuthSessionFromUrl() async {
+    final uri = Uri.base;
+    final tokenHash = uri.queryParameters['token_hash'];
+    final typeName = uri.queryParameters['type'];
+    if (tokenHash != null &&
+        tokenHash.isNotEmpty &&
+        typeName != null &&
+        typeName.isNotEmpty) {
+      final otpType = _otpTypeFromName(typeName);
+      if (otpType != null) {
+        try {
+          await _client.auth.verifyOTP(
+            tokenHash: tokenHash,
+            type: otpType,
+          );
+          return;
+        } catch (_) {
+          // Fall through to getSessionFromUrl.
+        }
+      }
+    }
+
+    final hasCode = uri.queryParameters.containsKey('code');
+    final hasToken =
+        uri.fragment.contains('access_token') ||
+        uri.queryParameters.containsKey('access_token') ||
+        typeName == 'signup' ||
+        typeName == 'magiclink' ||
+        typeName == 'invite' ||
+        typeName == 'email';
+    if (!hasCode && !hasToken) return;
+    try {
+      await _client.auth.getSessionFromUrl(uri);
+    } catch (_) {
+      // Sesjon kan allerede være hentet av Supabase.initialize.
+    }
+  }
+
+  OtpType? _otpTypeFromName(String name) {
+    switch (name.toLowerCase()) {
+      case 'signup':
+        return OtpType.signup;
+      case 'magiclink':
+        return OtpType.magiclink;
+      case 'invite':
+        return OtpType.invite;
+      case 'email':
+        return OtpType.email;
+      case 'recovery':
+        return OtpType.recovery;
+      default:
+        return null;
+    }
   }
 
   @override

@@ -267,10 +267,9 @@ class _Field extends StatelessWidget {
           controller: controller,
           minLines: lines,
           maxLines: lines,
-          decoration: InputDecoration(
-            labelText: label,
-            border: const OutlineInputBorder(),
-          ),
+          style: portalFieldStyle,
+          cursorColor: AppColors.ink,
+          decoration: fieldDecoration(label: label),
         ),
       ),
     );

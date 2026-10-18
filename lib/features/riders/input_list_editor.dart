@@ -244,9 +244,11 @@ class _Field extends StatelessWidget {
         focusNode: focusNode,
         enabled: enabled,
         textInputAction: textInputAction,
+        style: portalFieldStyle,
+        cursorColor: AppColors.ink,
         onChanged: (_) => onChanged(),
         onSubmitted: onSubmitted == null ? null : (_) => onSubmitted!(),
-        decoration: InputDecoration(labelText: label),
+        decoration: fieldDecoration(label: label),
       ),
     );
   }

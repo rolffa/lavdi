@@ -19,7 +19,7 @@ import '../models/repertoire.dart';
 import '../models/stage_plot.dart';
 import '../models/venue_note.dart';
 
-abstract class PortalRepository {
+abstract class PortalRepository extends ChangeNotifier {
   /// Public catalog. Only published artists.
   Future<List<Artist>> fetchArtists();
 
@@ -33,6 +33,18 @@ abstract class PortalRepository {
     required String artistId,
     required bool published,
   });
+
+  /// Admin is browsing an artist portal without a band login.
+  bool get isAdminViewingAsArtist => adminViewAsArtist != null;
+
+  /// Active «se som artist»-session, or null.
+  ArtistSession? get adminViewAsArtist;
+
+  /// Opens the given artist's portal for the signed-in admin.
+  Future<ArtistSession> openArtistPortalAsAdmin(String artistId);
+
+  /// Leaves admin artist-view and restores normal admin session.
+  Future<void> closeArtistPortalAsAdmin();
 
   Future<List<AvailabilityDay>> fetchAvailability({
     required String artistId,
@@ -61,6 +73,51 @@ abstract class PortalRepository {
   Future<void> signInAdmin({required String username, required String password});
 
   void signOutAdmin();
+
+  /// Current admin username after sign-in, or empty.
+  String get adminUsername;
+
+  /// Auth e-post for adminkontoen (Supabase Auth). Tom før innlogging i live-modus.
+  String get adminAuthEmail;
+
+  Future<void> changeAdminPassword({
+    required String currentPassword,
+    required String newPassword,
+  });
+
+  Future<String?> fetchAdminAvatarUrl();
+
+  Future<String> uploadAdminAvatar({
+    required String filename,
+    required Uint8List bytes,
+  });
+
+  Future<void> changeArtistPassword({
+    required String currentPassword,
+    required String newPassword,
+  });
+
+  /// Sets a password for the signed-in artist (invite / first-time setup).
+  Future<void> setArtistPassword(String password);
+
+  Future<String?> fetchMyAvatarUrl();
+
+  Future<String> uploadMyAvatar({
+    required String filename,
+    required Uint8List bytes,
+  });
+
+  Future<List<BandMember>> fetchAdminBandAccounts(String artistId);
+
+  Future<BandInvite> adminInviteBandMember({
+    required String artistId,
+    required String email,
+    required String role,
+    bool asLeader = false,
+  });
+
+  /// Sends a one-time login / reset link to the given email.
+  Future<void> adminSendPasswordReset(String email);
 
   Future<void> setAvailability({
     required String artistId,
@@ -98,6 +155,9 @@ abstract class PortalRepository {
 
   Future<BandOverview?> fetchMyBand();
 
+  /// Ensures the signed-in (or admin-viewed) artist has a band, then returns it.
+  Future<BandOverview> ensureMyBand();
+
   Future<BandOverview> createBand({required String name, required String contact});
 
   Future<Band> updateBand({
@@ -128,10 +188,13 @@ abstract class PortalRepository {
     required String personalTech,
   });
 
+  /// Creates invite and e-mails the activation link to the address.
   Future<BandInvite> inviteMember({required String email, required String role});
 
-  /// Sends the magic link to the invited address. Called from the invite page,
-  /// so the login verifier stays on the member's own browser.
+  /// Removes a band member. The sole band leader cannot be removed.
+  Future<void> removeMember(String memberId);
+
+  /// Sends (or resends) the activation e-mail to the invited address.
   Future<void> sendInviteEmail(String token);
 
   Future<void> revokeInvite(String inviteId);
@@ -139,6 +202,14 @@ abstract class PortalRepository {
   Future<BandInvitePreview?> previewInvite(String token);
 
   Future<BandMember> acceptInvite(String token);
+
+  /// Auth-e-post etter magic link / bekreftelse (kan finnes før artist er koblet).
+  String? currentAuthEmail();
+
+  /// Vent kort på at redirect-lenken etablerer Auth-sesjon.
+  Future<String?> waitForAuthEmail({
+    Duration timeout = const Duration(seconds: 8),
+  });
 
   Future<BandRoster?> fetchRiders(String bookingToken);
 
@@ -164,7 +235,7 @@ abstract class PortalRepository {
 
   Future<List<ArtistOffer>> fetchDeclinedOffers();
 
-  /// Forespørsel fra arrangør. Bare bandleder eller admin i bandet får den.
+  /// Forespørsel fra arrangør til bandet.
   Future<BookingRequest?> fetchBookingRequest(String id);
 
   Stream<PushNotice> get pushNotices;

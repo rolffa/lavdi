@@ -40,34 +40,37 @@ using (
 );
 
 drop policy if exists stage_plots_leader_insert on storage.objects;
-create policy stage_plots_leader_insert on storage.objects
+drop policy if exists stage_plots_member_insert on storage.objects;
+create policy stage_plots_member_insert on storage.objects
 for insert to authenticated
 with check (
   bucket_id = 'stage-plots'
-  and public.is_band_leader()
+  and public.is_band_member()
   and (storage.foldername(name))[1] = public.current_band_id()::text
 );
 
 drop policy if exists stage_plots_leader_update on storage.objects;
-create policy stage_plots_leader_update on storage.objects
+drop policy if exists stage_plots_member_update on storage.objects;
+create policy stage_plots_member_update on storage.objects
 for update to authenticated
 using (
   bucket_id = 'stage-plots'
-  and public.is_band_leader()
+  and public.is_band_member()
   and (storage.foldername(name))[1] = public.current_band_id()::text
 )
 with check (
   bucket_id = 'stage-plots'
-  and public.is_band_leader()
+  and public.is_band_member()
   and (storage.foldername(name))[1] = public.current_band_id()::text
 );
 
 drop policy if exists stage_plots_leader_delete on storage.objects;
-create policy stage_plots_leader_delete on storage.objects
+drop policy if exists stage_plots_member_delete on storage.objects;
+create policy stage_plots_member_delete on storage.objects
 for delete to authenticated
 using (
   bucket_id = 'stage-plots'
-  and public.is_band_leader()
+  and public.is_band_member()
   and (storage.foldername(name))[1] = public.current_band_id()::text
 );
 

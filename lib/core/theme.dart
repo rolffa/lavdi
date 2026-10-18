@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 abstract final class AppColors {
@@ -15,9 +16,185 @@ abstract final class AppColors {
   static const onImageMuted = Color(0xFFD9D1C5);
 }
 
+/// Validation message chip with "!" — readable on dark and light backgrounds.
+class FieldError extends StatelessWidget {
+  const FieldError(this.message, {super.key});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(3),
+        border: const Border.fromBorderSide(BorderSide(color: AppColors.busy)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '!',
+              style: TextStyle(
+                color: AppColors.busy,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                height: 1.1,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: AppColors.busy,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Placeholder-style decoration: [label] shows inside the empty field as hint.
+InputDecoration fieldDecoration({
+  required String label,
+  String? helperText,
+  String? hintText,
+  bool alignLabelWithHint = false,
+  String? errorText,
+}) {
+  return InputDecoration(
+    floatingLabelBehavior: FloatingLabelBehavior.never,
+    helperText: errorText == null ? helperText : null,
+    hintText: hintText ?? label,
+    hintStyle: const TextStyle(color: AppColors.muted),
+    alignLabelWithHint: alignLabelWithHint,
+    error: errorText == null ? null : FieldError(errorText),
+  );
+}
+
+const portalFieldStyle = TextStyle(color: AppColors.ink);
+
+/// Text field that shows [FieldError] chips instead of faint red helper text.
+class PortalTextFormField extends FormField<String> {
+  PortalTextFormField({
+    super.key,
+    required this.controller,
+    required this.label,
+    this.helperText,
+    this.hintText,
+    this.alignLabelWithHint = false,
+    this.keyboardType,
+    this.textCapitalization = TextCapitalization.none,
+    this.obscureText = false,
+    this.minLines,
+    this.maxLines = 1,
+    this.autofillHints,
+    this.inputFormatters,
+    this.onFieldSubmitted,
+    this.textInputAction,
+    this.autofocus = false,
+    super.validator,
+    super.enabled,
+  }) : super(
+         initialValue: controller.text,
+         builder: (field) {
+           return TextField(
+             controller: controller,
+             style: portalFieldStyle,
+             cursorColor: AppColors.ink,
+             keyboardType: keyboardType,
+             textCapitalization: textCapitalization,
+             obscureText: obscureText,
+             minLines: minLines,
+             maxLines: obscureText ? 1 : maxLines,
+             autofillHints: autofillHints,
+             inputFormatters: inputFormatters,
+             textInputAction: textInputAction,
+             autofocus: autofocus,
+             onChanged: field.didChange,
+             onSubmitted: onFieldSubmitted,
+             decoration: fieldDecoration(
+               label: label,
+               helperText: helperText,
+               hintText: hintText,
+               alignLabelWithHint: alignLabelWithHint,
+               errorText: field.errorText,
+             ),
+           );
+         },
+       );
+
+  final TextEditingController controller;
+  final String label;
+  final String? helperText;
+  final String? hintText;
+  final bool alignLabelWithHint;
+  final TextInputType? keyboardType;
+  final TextCapitalization textCapitalization;
+  final bool obscureText;
+  final int? minLines;
+  final int? maxLines;
+  final Iterable<String>? autofillHints;
+  final List<TextInputFormatter>? inputFormatters;
+  final ValueChanged<String>? onFieldSubmitted;
+  final TextInputAction? textInputAction;
+  final bool autofocus;
+
+  @override
+  FormFieldState<String> createState() => _PortalTextFormFieldState();
+}
+
+class _PortalTextFormFieldState extends FormFieldState<String> {
+  @override
+  PortalTextFormField get widget => super.widget as PortalTextFormField;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_handleControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(PortalTextFormField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handleControllerChanged);
+      widget.controller.addListener(_handleControllerChanged);
+      setValue(widget.controller.text);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_handleControllerChanged);
+    super.dispose();
+  }
+
+  @override
+  void reset() {
+    widget.controller.text = widget.initialValue ?? '';
+    super.reset();
+  }
+
+  void _handleControllerChanged() {
+    if (widget.controller.text != value) {
+      didChange(widget.controller.text);
+    }
+  }
+}
+
 ThemeData buildTheme() {
   final sans = GoogleFonts.schibstedGrotesk();
-  final displayFace = GoogleFonts.bricolageGrotesque();
+  const displayFace = TextStyle(fontFamily: 'Grooby');
 
   TextStyle display(
     double size, {
@@ -28,7 +205,7 @@ ThemeData buildTheme() {
       fontSize: size,
       height: height,
       letterSpacing: spacing,
-      fontWeight: FontWeight.w600,
+      fontWeight: FontWeight.w400,
       color: AppColors.ink,
     );
   }
@@ -85,6 +262,7 @@ ThemeData buildTheme() {
       filled: true,
       fillColor: AppColors.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      floatingLabelBehavior: FloatingLabelBehavior.never,
       labelStyle: text(14).copyWith(color: AppColors.muted),
       hintStyle: text(15).copyWith(color: AppColors.muted),
       border: border,
@@ -137,6 +315,7 @@ ThemeData onImageTheme(ThemeData base) {
   }
 
   final text = base.textTheme;
+  final input = base.inputDecorationTheme;
   return base.copyWith(
     colorScheme: base.colorScheme.copyWith(
       onSurface: AppColors.onImage,
@@ -153,6 +332,13 @@ ThemeData onImageTheme(ThemeData base) {
       bodySmall: paint(text.bodySmall, AppColors.onImageMuted),
       labelLarge: paint(text.labelLarge, AppColors.onImage),
       labelMedium: paint(text.labelMedium, AppColors.onImageMuted),
+    ),
+    // Labels/helpers sit on the photo; field text stays dark via InkSurface.
+    inputDecorationTheme: input.copyWith(
+      floatingLabelStyle: paint(input.labelStyle, AppColors.onImageMuted),
+      helperStyle: paint(input.hintStyle, AppColors.onImageMuted),
+      prefixStyle: paint(input.prefixStyle, AppColors.onImageMuted),
+      suffixStyle: paint(input.suffixStyle, AppColors.onImageMuted),
     ),
     iconTheme: const IconThemeData(color: AppColors.onImage),
     textButtonTheme: TextButtonThemeData(

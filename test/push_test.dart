@@ -5,6 +5,8 @@ import 'package:amundsen_booking/models/booking_draft.dart';
 import 'package:amundsen_booking/models/repertoire.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'demo_fixtures.dart';
+
 void main() {
   final clock = DateTime(2026, 10, 12);
 
@@ -71,6 +73,13 @@ void main() {
 
   test('setlist reminder is queued at 10:00 for yesterday until it is confirmed', () async {
     final repository = DemoPortalRepository(clock: () => clock);
+    final seeded = await seedConfirmedGig(
+      repository,
+      clock: () => clock,
+      date: DateTime(2026, 10, 11),
+      venue: 'USF Verftet, Bergen',
+      organizer: 'USF Verftet',
+    );
     await repository.signInArtist(
       email: DemoCatalog.artistEmail,
       password: DemoCatalog.artistPassword,
@@ -84,24 +93,16 @@ void main() {
     final notices = repository.enqueueSetlistReminders(at: DateTime(2026, 10, 12, 10));
     expect(notices, hasLength(1));
     expect(notices.single.body, setlistPushBody);
-    expect(
-      notices.single.url,
-      '/artist/gigs/b2000000-0000-4000-8000-000000000002/settliste',
-    );
+    expect(notices.single.url, '/artist/gigs/${seeded.gigId}/settliste');
     expect(notices.single.to, DemoCatalog.artistEmail);
     expect(notices.single.subject, setlistPushTitle);
 
-    final confirmed = DemoPortalRepository(clock: () => clock);
-    await confirmed.signInArtist(
-      email: DemoCatalog.artistEmail,
-      password: DemoCatalog.artistPassword,
-    );
-    await confirmed.saveSetlist(
-      gigId: 'b2000000-0000-4000-8000-000000000002',
+    await repository.saveSetlist(
+      gigId: seeded.gigId,
       tracks: const [SetlistTrack(title: 'Nordavind', duration: '03:45')],
     );
     expect(
-      confirmed.enqueueSetlistReminders(at: DateTime(2026, 10, 12, 10)),
+      repository.enqueueSetlistReminders(at: DateTime(2026, 10, 12, 10)),
       isEmpty,
     );
   });

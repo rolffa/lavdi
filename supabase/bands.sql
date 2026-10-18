@@ -122,6 +122,19 @@ as $$
   );
 $$;
 
+create or replace function public.is_band_member()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.band_members
+    where user_id = auth.uid()
+  );
+$$;
+
 create or replace function public.attach_band_leader()
 returns void
 language plpgsql
@@ -195,8 +208,8 @@ declare
   v_token text;
   v_id uuid;
 begin
-  if not public.is_band_leader() then
-    raise exception 'Bare bandlederen kan invitere.';
+  if not public.is_band_member() then
+    raise exception 'Du er ikke med i et band.';
   end if;
   if v_email is null or position('@' in v_email) = 0 then
     raise exception 'Oppgi en gyldig e-postadresse.';
@@ -330,6 +343,7 @@ revoke all on function public.current_artist_id() from public, anon;
 revoke all on function public.artist_me() from public, anon;
 revoke all on function public.current_band_id() from public;
 revoke all on function public.is_band_leader() from public;
+revoke all on function public.is_band_member() from public;
 revoke all on function public.attach_band_leader() from public;
 revoke all on function public.create_band(text, text) from public;
 revoke all on function public.invite_band_member(text, text) from public;
@@ -341,6 +355,7 @@ grant execute on function public.current_artist_id() to authenticated;
 grant execute on function public.artist_me() to authenticated;
 grant execute on function public.current_band_id() to authenticated;
 grant execute on function public.is_band_leader() to authenticated;
+grant execute on function public.is_band_member() to authenticated;
 grant execute on function public.attach_band_leader() to authenticated;
 grant execute on function public.create_band(text, text) to authenticated;
 grant execute on function public.invite_band_member(text, text) to authenticated;
@@ -358,10 +373,11 @@ for select to authenticated
 using (id = public.current_band_id());
 
 drop policy if exists bands_leader_update on public.bands;
-create policy bands_leader_update on public.bands
+drop policy if exists bands_member_update on public.bands;
+create policy bands_member_update on public.bands
 for update to authenticated
-using (id = public.current_band_id() and public.is_band_leader())
-with check (id = public.current_band_id() and public.is_band_leader());
+using (id = public.current_band_id() and public.is_band_member())
+with check (id = public.current_band_id() and public.is_band_member());
 
 drop policy if exists band_members_read on public.band_members;
 create policy band_members_read on public.band_members
@@ -375,14 +391,16 @@ using (user_id = auth.uid())
 with check (user_id = auth.uid() and band_id = public.current_band_id());
 
 drop policy if exists band_invites_leader_read on public.band_invites;
-create policy band_invites_leader_read on public.band_invites
+drop policy if exists band_invites_member_read on public.band_invites;
+create policy band_invites_member_read on public.band_invites
 for select to authenticated
-using (band_id = public.current_band_id() and public.is_band_leader());
+using (band_id = public.current_band_id() and public.is_band_member());
 
 drop policy if exists band_invites_leader_delete on public.band_invites;
-create policy band_invites_leader_delete on public.band_invites
+drop policy if exists band_invites_member_delete on public.band_invites;
+create policy band_invites_member_delete on public.band_invites
 for delete to authenticated
-using (band_id = public.current_band_id() and public.is_band_leader() and accepted_at is null);
+using (band_id = public.current_band_id() and public.is_band_member() and accepted_at is null);
 
 grant select, update on table public.bands to authenticated;
 grant select on table public.band_members to authenticated;

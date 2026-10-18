@@ -25,6 +25,7 @@ class _InvitePageState extends State<InvitePage> {
   String? _message;
   var _loading = true;
   var _busy = false;
+  var _hasAuthSession = false;
 
   @override
   void initState() {
@@ -39,18 +40,45 @@ class _InvitePageState extends State<InvitePage> {
     setState(() {
       _loading = true;
       _error = null;
+      _message = null;
     });
     try {
       final preview = await repository.previewInvite(widget.token);
       if (!mounted) return;
+      if (preview == null) {
+        setState(() {
+          _preview = null;
+          _loading = false;
+        });
+        return;
+      }
+      if (preview.used) {
+        setState(() {
+          _preview = preview;
+          _loading = false;
+          _message = 'Invitasjonen er allerede brukt. Logg inn på Min side.';
+        });
+        return;
+      }
+
       setState(() {
         _preview = preview;
         _loading = false;
       });
-      final session = await repository.currentArtist();
-      if (!mounted || preview == null || session == null) return;
-      if (session.email.toLowerCase() == preview.email.toLowerCase()) {
+
+      // Inviterte er ikke artist ennå — bruk Auth-e-post, ikke currentArtist().
+      final authEmail = await repository.waitForAuthEmail();
+      if (!mounted) return;
+      final matched = authEmail != null &&
+          authEmail.toLowerCase() == preview.email.toLowerCase();
+      setState(() => _hasAuthSession = matched);
+      if (matched) {
         await _accept();
+      } else if (authEmail != null) {
+        setState(
+          () => _message =
+              'Du er innlogget som $authEmail, men invitasjonen er til ${preview.email}.',
+        );
       }
     } catch (error) {
       if (!mounted) return;
@@ -70,7 +98,10 @@ class _InvitePageState extends State<InvitePage> {
       final member = await PortalScope.of(context).repository
           .acceptInvite(widget.token);
       if (!mounted) return;
-      setState(() => _member = member);
+      setState(() {
+        _member = member;
+        _hasAuthSession = true;
+      });
     } catch (error) {
       if (mounted) setState(() => _message = readableError(error));
     } finally {
@@ -88,7 +119,7 @@ class _InvitePageState extends State<InvitePage> {
       if (!mounted) return;
       setState(
         () => _message =
-            'Sjekk e-posten. Lenken aktiverer kontoen på denne siden.',
+            'Sjekk e-posten. Åpne bekreftelseslenken i samme nettleser — da aktiveres kontoen her.',
       );
     } catch (error) {
       if (mounted) setState(() => _message = readableError(error));
@@ -103,14 +134,20 @@ class _InvitePageState extends State<InvitePage> {
     required String phone,
     required String food,
     required String personalTech,
+    String? password,
   }) async {
-    final member = await PortalScope.of(context).repository.saveMyProfile(
+    final repository = PortalScope.of(context).repository;
+    final member = await repository.saveMyProfile(
       name: name,
       role: role,
       phone: phone,
       food: food,
       personalTech: personalTech,
     );
+    final chosen = password?.trim() ?? '';
+    if (chosen.isNotEmpty) {
+      await repository.setArtistPassword(chosen);
+    }
     if (!mounted) return;
     setState(() => _member = member);
   }
@@ -139,7 +176,9 @@ class _InvitePageState extends State<InvitePage> {
                           children: [
                             Text(
                               'Invitasjon',
-                              style: theme.textTheme.displaySmall?.copyWith(color: AppColors.onImage),
+                              style: theme.textTheme.displaySmall?.copyWith(
+                                color: AppColors.onImage,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             Text(
@@ -167,17 +206,37 @@ class _InvitePageState extends State<InvitePage> {
                                     child: const Text('Aktiver kontoen'),
                                   ),
                                 )
-                              else
+                              else if (_hasAuthSession)
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton(
+                                    onPressed: _busy ? null : _accept,
+                                    child: Text(
+                                      _busy
+                                          ? 'Aktiverer…'
+                                          : 'Aktiver kontoen',
+                                    ),
+                                  ),
+                                )
+                              else ...[
+                                Text(
+                                  'Åpne aktiveringslenken fra e-posten din. Har du ikke fått den, kan du sende på nytt under.',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.onImageMuted,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
                                 SizedBox(
                                   width: double.infinity,
                                   child: FilledButton(
                                     onPressed: _busy ? null : _sendEmail,
-                                    child: const Text('Send aktiveringslenke'),
+                                    child: const Text('Send e-post på nytt'),
                                   ),
                                 ),
+                              ],
                             ] else if (!member.profileComplete) ...[
                               Text(
-                                'Fyll ut profilen for å fortsette. Alle feltene er obligatoriske.',
+                                'Fyll ut profilen og lag et passord for innlogging. Alle feltene er obligatoriske.',
                                 style: theme.textTheme.bodyLarge?.copyWith(
                                   color: AppColors.onImageMuted,
                                 ),
@@ -185,6 +244,7 @@ class _InvitePageState extends State<InvitePage> {
                               const SizedBox(height: 16),
                               MemberProfileForm(
                                 initial: member,
+                                includePassword: true,
                                 onSave: _saveProfile,
                               ),
                             ] else ...[

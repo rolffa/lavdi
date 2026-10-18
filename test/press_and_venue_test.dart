@@ -85,6 +85,14 @@ void main() {
       email: DemoCatalog.artistEmail,
       password: DemoCatalog.artistPassword,
     );
+    await repository.addVenueNote(
+      venueName: 'Koengen',
+      city: 'Bergen',
+      loadInNotes: 'Bæring fra baksiden. Heis til scenenivå.',
+      soundLightingNotes: 'God PA. Teknisk ansvarlig kjenner IEM.',
+      hospitalityNotes: 'Garderobe under scenen. Varm mat i backstage.',
+      contactNotes: 'Ida møter i døren.',
+    );
     final upcoming = await repository.fetchVenueNotes();
     expect(
       upcoming.where((note) => venueNoteMatches(note, 'Koengen, Bergen')).single.contactNotes,

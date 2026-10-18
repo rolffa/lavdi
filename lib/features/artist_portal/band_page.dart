@@ -55,13 +55,14 @@ class _BandPageState extends State<BandPage> {
       _error = null;
     });
     try {
-      final overview = await repository.fetchMyBand();
+      final overview = await repository.ensureMyBand();
       if (!mounted) return;
-      if (overview != null) {
-        _name.text = overview.band.name;
-        _contact.text = overview.band.contact;
-        _tech.text = overview.band.sharedTech;
-        _hospitality.text = overview.band.sharedHospitality;
+      _name.text = overview.band.name;
+      _contact.text = overview.band.contact;
+      _tech.text = overview.band.sharedTech;
+      _hospitality.text = overview.band.sharedHospitality;
+      if (overview.members.isEmpty && _inviteRole.text.trim().isEmpty) {
+        _inviteRole.text = 'Bandleder';
       }
       setState(() {
         _overview = overview;
@@ -74,22 +75,6 @@ class _BandPageState extends State<BandPage> {
         _loading = false;
       });
     }
-  }
-
-  Future<void> _create() async {
-    if (_name.text.trim().isEmpty) {
-      setState(() => _message = 'Bandet trenger et navn.');
-      return;
-    }
-    await _run(() async {
-      final overview = await PortalScope.of(context).repository
-          .createBand(name: _name.text, contact: _contact.text);
-      _overview = overview;
-      _message = 'Bandet er opprettet.';
-      if (!overview.me.profileComplete && mounted) {
-        context.go('/min-side/profil');
-      }
-    });
   }
 
   Future<void> _saveBand() async {
@@ -112,13 +97,25 @@ class _BandPageState extends State<BandPage> {
 
   Future<void> _invite() async {
     await _run(() async {
+      final role = _inviteRole.text.trim().isEmpty &&
+              (_overview?.members.isEmpty ?? true)
+          ? 'Bandleder'
+          : _inviteRole.text;
       final invite = await PortalScope.of(context).repository
-          .inviteMember(email: _inviteEmail.text, role: _inviteRole.text);
+          .inviteMember(email: _inviteEmail.text, role: role);
       _inviteEmail.clear();
       _inviteRole.clear();
-      _message =
-          'Invitasjon til ${invite.email} som ${invite.role}. Del lenken under.';
+      _flash(
+        'Invitasjon sendt til ${invite.email} som ${invite.role}.',
+      );
       await _load();
+    });
+  }
+
+  Future<void> _resendInvite(BandInvite invite) async {
+    await _run(() async {
+      await PortalScope.of(context).repository.sendInviteEmail(invite.token);
+      _flash('Aktiveringslenke sendt på nytt til ${invite.email}.');
     });
   }
 
@@ -130,6 +127,53 @@ class _BandPageState extends State<BandPage> {
     });
   }
 
+  bool _isSoleLeader(BandMember member) {
+    if (!member.isLeader) return false;
+    final leaders =
+        _overview?.members.where((item) => item.isLeader).length ?? 0;
+    return leaders <= 1;
+  }
+
+  Future<void> _removeMember(BandMember member) async {
+    if (_isSoleLeader(member)) {
+      _flash('Kan ikke fjerne den eneste bandlederen.');
+      return;
+    }
+    final label = member.name.isEmpty ? 'dette medlemmet' : member.name;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Fjern medlem'),
+          content: Text('Vil du fjerne $label fra bandet?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Avbryt'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Fjern'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+    await _run(() async {
+      await PortalScope.of(context).repository.removeMember(member.id);
+      _flash('Medlemmet er fjernet.');
+      await _load();
+    });
+  }
+
+  void _flash(String message) {
+    setState(() => _message = message);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.hideCurrentSnackBar();
+    messenger?.showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _run(Future<void> Function() action) async {
     setState(() {
       _saving = true;
@@ -138,7 +182,7 @@ class _BandPageState extends State<BandPage> {
     try {
       await action();
     } catch (error) {
-      if (mounted) _message = readableError(error);
+      if (mounted) _flash(readableError(error));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -183,7 +227,7 @@ class _BandPageState extends State<BandPage> {
                               ),
                               const SizedBox(height: 12),
                             ],
-                            if (_overview == null) _createForm() else _editor(),
+                            if (_overview != null) _editor(),
                           ],
                         ),
                 ),
@@ -192,36 +236,11 @@ class _BandPageState extends State<BandPage> {
     );
   }
 
-  Widget _createForm() {
-    return _BandBox(
-      title: 'Bandinfo',
-      caption: 'Navn og kontakt',
-      tone: _BandTone.info,
-      children: [
-        TextField(
-          controller: _name,
-          decoration: const InputDecoration(labelText: 'Bandnavn'),
-        ),
-        TextField(
-          controller: _contact,
-          decoration: const InputDecoration(labelText: 'Kontaktinfo'),
-        ),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            onPressed: _saving ? null : _create,
-            child: const Text('Opprett band'),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _editor() {
     final overview = _overview!;
-    final leader = overview.me.isLeader;
     final theme = Theme.of(context);
     final origin = Uri.base.origin;
+    final canEdit = !_saving;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -232,45 +251,52 @@ class _BandPageState extends State<BandPage> {
           children: [
             TextField(
               controller: _name,
-              enabled: leader && !_saving,
-              decoration: const InputDecoration(labelText: 'Bandnavn'),
+              enabled: canEdit,
+              style: portalFieldStyle,
+              cursorColor: AppColors.ink,
+              decoration: fieldDecoration(label: 'Bandnavn'),
             ),
             TextField(
               controller: _contact,
-              enabled: leader && !_saving,
-              decoration: const InputDecoration(
-                labelText: 'Kontaktinfo',
+              enabled: canEdit,
+              style: portalFieldStyle,
+              cursorColor: AppColors.ink,
+              decoration: fieldDecoration(
+                label: 'Kontaktinfo',
                 helperText: 'Vises på hospitality-rideren',
               ),
             ),
             TextField(
               controller: _hospitality,
-              enabled: leader && !_saving,
+              enabled: canEdit,
               minLines: 3,
               maxLines: 6,
-              decoration: const InputDecoration(
-                labelText: 'Felles backstage og losji',
+              style: portalFieldStyle,
+              cursorColor: AppColors.ink,
+              decoration: fieldDecoration(
+                label: 'Felles backstage og losji',
                 alignLabelWithHint: true,
               ),
             ),
             TextField(
               controller: _tech,
-              enabled: leader && !_saving,
+              enabled: canEdit,
               minLines: 3,
               maxLines: 6,
-              decoration: const InputDecoration(
-                labelText: 'Felles teknisk oppsett',
+              style: portalFieldStyle,
+              cursorColor: AppColors.ink,
+              decoration: fieldDecoration(
+                label: 'Felles teknisk oppsett',
                 alignLabelWithHint: true,
               ),
             ),
-            if (leader)
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _saving ? null : _saveBand,
-                  child: const Text('Lagre bandinfo'),
-                ),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _saving ? null : _saveBand,
+                child: const Text('Lagre bandinfo'),
               ),
+            ),
           ],
         ),
         const SizedBox(height: 20),
@@ -303,12 +329,34 @@ class _BandPageState extends State<BandPage> {
                       Text(
                         member.role.isEmpty ? 'Rolle ikke satt' : member.role,
                       ),
+                      if (member.isLeader)
+                        Text(
+                          'Bandleder',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.muted,
+                          ),
+                        ),
                       if (!member.profileComplete)
                         Text(
                           'Profilen er ikke ferdig',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: AppColors.busy,
                           ),
+                        ),
+                      const SizedBox(height: 8),
+                      if (_isSoleLeader(member))
+                        Text(
+                          'Eneste bandleder kan ikke fjernes. Inviter flere først.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.muted,
+                          ),
+                        )
+                      else
+                        TextButton(
+                          onPressed: _saving
+                              ? null
+                              : () => _removeMember(member),
+                          child: const Text('Fjern'),
                         ),
                     ],
                   ),
@@ -322,96 +370,119 @@ class _BandPageState extends State<BandPage> {
             ),
           ],
         ),
-        if (leader) ...[
-          const SizedBox(height: 20),
-          _BandBox(
-            title: 'Inviter',
-            caption: 'Send en lenke til et nytt medlem',
-            tone: _BandTone.invite,
-            children: [
-              Text(
-                'Medlemmet åpner lenken og aktiverer kontoen selv. Ingen ID-kode.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.muted,
-                ),
+        const SizedBox(height: 20),
+        _BandBox(
+          title: 'Inviter',
+          caption: 'Send e-post til et nytt medlem',
+          tone: _BandTone.invite,
+          children: [
+            Text(
+              overview.members.isEmpty
+                  ? 'Ingen medlemmer ennå. Den første som inviteres blir bandleder og får e-post med aktiveringslenke.'
+                  : 'Alle i bandet kan invitere. Personen får en e-post med aktiveringslenke. Velg Bandleder for å invitere en ekstra leder.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.muted,
               ),
-              TextField(
-                controller: _inviteEmail,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'E-post'),
+            ),
+            TextField(
+              controller: _inviteEmail,
+              keyboardType: TextInputType.emailAddress,
+              style: portalFieldStyle,
+              cursorColor: AppColors.ink,
+              decoration: fieldDecoration(label: 'E-post'),
+            ),
+            TextField(
+              controller: _inviteRole,
+              style: portalFieldStyle,
+              cursorColor: AppColors.ink,
+              decoration: fieldDecoration(
+                label: 'Rolle',
+                helperText: overview.members.isEmpty
+                    ? 'Første invitasjon settes til Bandleder'
+                    : 'Bandleder, musiker, lydtekniker eller turnéleder',
               ),
-              TextField(
-                controller: _inviteRole,
-                decoration: const InputDecoration(
-                  labelText: 'Rolle',
-                  helperText: 'Musiker, lydtekniker eller turnéleder',
-                ),
-              ),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final role in const [
-                    'Musiker',
-                    'Lydtekniker',
-                    'Turnéleder',
-                  ])
-                    ActionChip(
-                      label: Text(role),
-                      onPressed: () => _inviteRole.text = role,
-                    ),
-                ],
-              ),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _saving ? null : _invite,
-                  child: const Text('Inviter'),
-                ),
-              ),
-              for (final invite in overview.invites)
-                ArtistCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${invite.email} · ${invite.role}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: AppColors.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SelectableText(
-                        '$origin/min-side/invitasjon/${invite.token}',
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          OutlinedButton(
-                            onPressed: () async {
-                              await Clipboard.setData(
-                                ClipboardData(
-                                  text:
-                                      '$origin/min-side/invitasjon/${invite.token}',
-                                ),
-                              );
-                              if (!mounted) return;
-                              setState(() => _message = 'Lenken er kopiert.');
-                            },
-                            child: const Text('Kopier lenke'),
-                          ),
-                          TextButton(
-                            onPressed: _saving ? null : () => _revoke(invite),
-                            child: const Text('Trekk tilbake'),
-                          ),
-                        ],
-                      ),
-                    ],
+            ),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final role in const [
+                  'Bandleder',
+                  'Musiker',
+                  'Lydtekniker',
+                  'Turnéleder',
+                ])
+                  ActionChip(
+                    label: Text(role),
+                    onPressed: () {
+                      _inviteRole.text = role;
+                      setState(() {});
+                    },
                   ),
+              ],
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _saving ? null : _invite,
+                child: Text(
+                  overview.members.isEmpty
+                      ? 'Inviter bandleder'
+                      : 'Send invitasjon',
                 ),
-            ],
-          ),
-        ],
+              ),
+            ),
+            for (final invite in overview.invites)
+              ArtistCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${invite.email} · ${invite.role}',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    Text(
+                      'Venter på aktivering',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        OutlinedButton(
+                          onPressed:
+                              _saving ? null : () => _resendInvite(invite),
+                          child: const Text('Send e-post på nytt'),
+                        ),
+                        TextButton(
+                          onPressed: _saving
+                              ? null
+                              : () async {
+                                  await Clipboard.setData(
+                                    ClipboardData(
+                                      text:
+                                          '$origin/min-side/invitasjon/${invite.token}',
+                                    ),
+                                  );
+                                  if (!mounted) return;
+                                  _flash('Reservelenke er kopiert.');
+                                },
+                          child: const Text('Kopier reservelenke'),
+                        ),
+                        TextButton(
+                          onPressed: _saving ? null : () => _revoke(invite),
+                          child: const Text('Trekk tilbake'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ],
     );
   }

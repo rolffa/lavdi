@@ -8,7 +8,6 @@ import '../artist_portal/portal_widgets.dart';
 class TechnicalRiderPanel extends StatelessWidget {
   const TechnicalRiderPanel({
     super.key,
-    required this.leader,
     required this.busy,
     required this.plot,
     required this.inputList,
@@ -21,7 +20,6 @@ class TechnicalRiderPanel extends StatelessWidget {
     required this.onDownloadPlot,
   });
 
-  final bool leader;
   final bool busy;
   final StagePlot? plot;
   final TextEditingController inputList;
@@ -65,19 +63,18 @@ class TechnicalRiderPanel extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  if (leader)
-                    FilledButton(
-                      onPressed: busy ? null : onUpload,
-                      child: Text(
-                        plot == null ? 'Last opp scenekart' : 'Last opp nytt',
-                      ),
+                  FilledButton(
+                    onPressed: busy ? null : onUpload,
+                    child: Text(
+                      plot == null ? 'Last opp scenekart' : 'Last opp nytt',
                     ),
+                  ),
                   if (plot != null)
                     OutlinedButton(
                       onPressed: busy ? null : onDownloadPlot,
                       child: const Text('Last ned filen'),
                     ),
-                  if (leader && plot != null)
+                  if (plot != null)
                     TextButton(
                       onPressed: busy ? null : onClear,
                       child: const Text('Fjern'),
@@ -87,57 +84,61 @@ class TechnicalRiderPanel extends StatelessWidget {
             ],
           ),
         ),
-        if (leader) ...[
-          const SizedBox(height: 20),
-          InputListEditor(controller: inputList, enabled: !busy),
-          const SizedBox(height: 12),
-          InkSurface(
-            child: TextField(
-              controller: monitors,
-              enabled: !busy,
-              minLines: 2,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                labelText: 'Monitorbehov (wedges / IEM)',
-                alignLabelWithHint: true,
-              ),
+        const SizedBox(height: 20),
+        InputListEditor(controller: inputList, enabled: !busy),
+        const SizedBox(height: 12),
+        InkSurface(
+          child: TextField(
+            controller: monitors,
+            enabled: !busy,
+            minLines: 2,
+            maxLines: 5,
+            style: portalFieldStyle,
+            cursorColor: AppColors.ink,
+            decoration: fieldDecoration(
+              label: 'Monitorbehov (wedges / IEM)',
+              alignLabelWithHint: true,
             ),
           ),
-          const SizedBox(height: 12),
-          InkSurface(
-            child: TextField(
-              controller: stageRig,
-              enabled: !busy,
-              minLines: 2,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                labelText: 'DJ / scenerigg',
-                alignLabelWithHint: true,
-              ),
+        ),
+        const SizedBox(height: 12),
+        InkSurface(
+          child: TextField(
+            controller: stageRig,
+            enabled: !busy,
+            minLines: 2,
+            maxLines: 5,
+            style: portalFieldStyle,
+            cursorColor: AppColors.ink,
+            decoration: fieldDecoration(
+              label: 'DJ / scenerigg',
+              alignLabelWithHint: true,
             ),
           ),
-          const SizedBox(height: 12),
-          InkSurface(
-            child: TextField(
-              controller: paRequirements,
-              enabled: !busy,
-              minLines: 2,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                labelText: 'PA-krav',
-                alignLabelWithHint: true,
-              ),
+        ),
+        const SizedBox(height: 12),
+        InkSurface(
+          child: TextField(
+            controller: paRequirements,
+            enabled: !busy,
+            minLines: 2,
+            maxLines: 5,
+            style: portalFieldStyle,
+            cursorColor: AppColors.ink,
+            decoration: fieldDecoration(
+              label: 'PA-krav',
+              alignLabelWithHint: true,
             ),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: busy ? null : onSave,
-              child: const Text('Lagre teknisk rider'),
-            ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: busy ? null : onSave,
+            child: const Text('Lagre teknisk rider'),
           ),
-        ],
+        ),
       ],
     );
   }

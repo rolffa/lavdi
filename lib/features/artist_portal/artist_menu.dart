@@ -13,6 +13,7 @@ class ArtistMenu extends StatelessWidget {
     ('Ridere', '/min-side/ridere'),
     ('Kalender', '/min-side/kalender'),
     ('Presse', '/artist/presse'),
+    ('Konto', '/min-side/konto'),
   ];
 
   @override
@@ -57,6 +58,7 @@ String _currentItem(String path) {
     return 'Ridere';
   }
   if (path.startsWith('/min-side/kalender')) return 'Kalender';
+  if (path.startsWith('/min-side/konto')) return 'Konto';
   if (path.startsWith('/min-side/band') ||
       path.startsWith('/min-side/profil')) {
     return 'Band/crew';

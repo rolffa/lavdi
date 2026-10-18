@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/push_logic.dart';
 import '../../core/theme.dart';
 
 class LeaderMailCard extends StatelessWidget {
@@ -30,7 +29,7 @@ class LeaderMailCard extends StatelessWidget {
                   Text('Varsler', style: heading),
                   const SizedBox(height: 6),
                   Text(
-                    'Tilbud og påminnelse om settliste adresseres til bandlederens e-post.',
+                    'Tilbud og påminnelse om settliste sendes til bandets e-post.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: AppColors.muted,
                     ),
@@ -48,5 +47,5 @@ class LeaderMailCard extends StatelessWidget {
 }
 
 bool showPushCard({required bool isLeader, required String role}) {
-  return isBandLeader(isLeader: isLeader, role: role);
+  return true;
 }

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/brand.dart';
+import '../../core/portal_scope.dart';
 import '../../core/theme.dart';
+import '../../models/artist_session.dart';
 import '../admin/admin_menu.dart';
 import '../artist_portal/artist_menu.dart';
 
@@ -22,6 +24,11 @@ class PortalScaffold extends StatelessWidget {
     final image = onImageTheme(ink);
     final path = GoRouterState.of(context).uri.path;
     final showAdminMenu = path == '/admin' || path.startsWith('/admin/');
+    final adminView = PortalScope.of(context).repository.adminViewAsArtist;
+    final showAdminViewBanner = adminView != null &&
+        (artistMenu ||
+            path.startsWith('/min-side') ||
+            path == '/artist/presse');
     return Scaffold(
       body: DecoratedBox(
         decoration: const BoxDecoration(
@@ -35,6 +42,7 @@ class PortalScaffold extends StatelessWidget {
         child: Column(
           children: [
             const PortalHeader(),
+            if (showAdminViewBanner) AdminArtistViewBanner(session: adminView),
             if (artistMenu) const ArtistMenu(),
             if (showAdminMenu) const AdminMenu(),
             Expanded(
@@ -51,7 +59,26 @@ class PortalScaffold extends StatelessWidget {
                 ),
               ),
             ),
+            const PortalFooter(),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class PortalFooter extends StatelessWidget {
+  const PortalFooter({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      child: Text(
+        'Amundsen Studio © 2026',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: AppColors.onImageMuted,
         ),
       ),
     );
@@ -72,11 +99,7 @@ class PortalHeader extends StatelessWidget {
       color: Colors.transparent,
       child: Column(
         children: [
-          DecoratedBox(
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppColors.line)),
-            ),
-            child: SizedBox(
+          SizedBox(
               height: width < 720 ? 108 : 132,
               width: double.infinity,
               child: Padding(
@@ -171,10 +194,9 @@ class PortalHeader extends StatelessWidget {
                   },
                 ),
               ),
-            ),
           ),
           ColoredBox(
-            color: AppColors.paperDeep,
+            color: AppColors.hero.withValues(alpha: 0.72),
             child: Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: horizontal,
@@ -185,7 +207,7 @@ class PortalHeader extends StatelessWidget {
                   'Booking, management og advance gjort enkelt for deg',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.ink,
+                    color: AppColors.onImageMuted,
                   ),
                 ),
               ),
@@ -249,6 +271,59 @@ class ErrorRetry extends StatelessWidget {
           const SizedBox(height: 16),
           FilledButton(onPressed: onRetry, child: const Text('Prøv igjen')),
         ],
+      ),
+    );
+  }
+}
+
+class AdminArtistViewBanner extends StatelessWidget {
+  const AdminArtistViewBanner({super.key, required this.session});
+
+  final ArtistSession session;
+
+  Future<void> _backToAdmin(BuildContext context) async {
+    final repository = PortalScope.of(context).repository;
+    await repository.closeArtistPortalAsAdmin();
+    if (!context.mounted) return;
+    context.go('/admin/artister');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: AppColors.ink,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 960),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              alignment: WrapAlignment.center,
+              spacing: 12,
+              runSpacing: 6,
+              children: [
+                Text(
+                  'Du ser nå på portalen som ${session.artistName} (Admin-modus).',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onImage,
+                  ),
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.onImage,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: () => _backToAdmin(context),
+                  child: const Text('Tilbake til adminportal'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -66,19 +66,19 @@ class _AdminLoginState extends State<AdminLogin> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextFormField(
+              PortalTextFormField(
                 controller: _username,
-                decoration: const InputDecoration(labelText: 'Brukernavn'),
+                label: 'Brukernavn',
                 textInputAction: TextInputAction.next,
                 autofocus: true,
                 validator: (value) =>
                     value == null || value.trim().isEmpty ? 'Skriv brukernavn' : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
+              PortalTextFormField(
                 controller: _password,
+                label: 'Passord',
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Passord'),
                 textInputAction: TextInputAction.done,
                 onFieldSubmitted: (_) => _submit(),
                 validator: (value) =>
@@ -86,7 +86,7 @@ class _AdminLoginState extends State<AdminLogin> {
               ),
               if (_error != null) ...[
                 const SizedBox(height: 8),
-                Text(_error!),
+                FieldError(_error!),
               ],
               const SizedBox(height: 12),
               FilledButton(

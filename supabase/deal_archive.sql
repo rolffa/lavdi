@@ -16,11 +16,11 @@ set search_path = public
 as $$
 declare
   artist_navn text;
-  gig_id uuid;
+  v_gig_id uuid;
   crew jsonb;
 begin
   select navn into artist_navn from public.artists where id = p_booking.artist_id;
-  select id into gig_id from public.gigs where booking_id = p_booking.id;
+  select id into v_gig_id from public.gigs where booking_id = p_booking.id;
   select coalesce(jsonb_agg(
     jsonb_build_object(
       'member_id', c.id,
@@ -38,7 +38,7 @@ begin
   ), '[]'::jsonb)
   into crew
   from public.gig_crew_travel c
-  where c.gig_id = gig_id;
+  where c.gig_id = v_gig_id;
 
   return jsonb_build_object(
     'id', p_booking.id,
@@ -59,7 +59,7 @@ begin
     'sendt_artist_at', p_booking.sendt_artist_at,
     'svarfrist', p_booking.svarfrist,
     'admin_signert_at', p_booking.admin_signert_at,
-    'gig_id', gig_id,
+    'gig_id', v_gig_id,
     'reise_token', coalesce(p_booking.reise_token, ''),
     'dag_token', coalesce(p_booking.dag_token, ''),
     'presse_klar', p_booking.presse_klar,

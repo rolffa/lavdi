@@ -6,6 +6,8 @@ import 'package:amundsen_booking/models/production_plan.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'demo_fixtures.dart';
+
 void main() {
   final clock = DateTime(2026, 10, 11);
 
@@ -50,12 +52,16 @@ void main() {
 
   test('a blocked date is rejected', () async {
     final repository = DemoPortalRepository(clock: () => clock);
-    final days = await repository.fetchAvailability(
-      artistId: DemoCatalog.linnId,
-      from: DateTime(2026, 10, 12),
-      to: DateTime(2026, 10, 31),
+    final blocked = DateTime(2026, 10, 20);
+    await repository.signInAdmin(
+      username: DemoCatalog.adminUsername,
+      password: DemoCatalog.adminPassword,
     );
-    final blocked = days.firstWhere((day) => !day.isAvailable).date;
+    await repository.setAvailability(
+      artistId: DemoCatalog.linnId,
+      date: blocked,
+      isAvailable: false,
+    );
 
     expect(
       () => repository.submitBooking(
@@ -80,10 +86,16 @@ void main() {
     final missing = await repository.fetchGig('ukjent');
     expect(missing, isNull);
 
-    final gig = await repository.fetchGig(DemoCatalog.productionToken);
+    final seeded = await seedConfirmedGig(
+      repository,
+      clock: () => clock,
+      date: DateTime(2026, 11, 1),
+      venue: 'Koengen, Bergen',
+      organizer: 'Bergensfestivalen AS',
+    );
+    final gig = await repository.fetchGig(seeded.bookingToken);
     expect(gig, isNotNull);
     expect(gig!.artistName, 'Rolffa');
-    expect(gig.bookingId, DemoCatalog.productionBookingId);
     expect(gig.organizer.venueCity, 'Koengen, Bergen');
     expect(gig.organizer.organization, 'Bergensfestivalen AS');
     expect(gig.status, 'confirmed');
@@ -125,7 +137,7 @@ void main() {
     );
 
     final saved = await repository.saveProduction(
-      bookingToken: DemoCatalog.productionToken,
+      bookingToken: seeded.bookingToken,
       plan: const ProductionPlan(
         eventName: 'Koengen',
         accommodationName: 'Hotel Norge',
@@ -153,12 +165,18 @@ void main() {
       password: DemoCatalog.adminPassword,
     );
 
+    final day = DateTime(2026, 10, 12);
+    await repository.setAvailability(
+      artistId: DemoCatalog.fjordId,
+      date: day,
+      isAvailable: true,
+    );
     final days = await repository.fetchAvailability(
       artistId: DemoCatalog.fjordId,
-      from: DateTime(2026, 10, 12),
-      to: DateTime(2026, 10, 12),
+      from: day,
+      to: day,
     );
-    final day = days.single.date;
+    expect(days.single.isAvailable, isTrue);
 
     await repository.setAvailability(
       artistId: DemoCatalog.fjordId,

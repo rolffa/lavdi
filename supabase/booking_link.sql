@@ -235,6 +235,7 @@ declare
   required_key text;
   clock_value text;
   payload jsonb;
+  required_keys text[] := array['get_in', 'lydprove', 'get_in_show', 'showstart', 'curfew'];
 begin
   if p_token is null or length(trim(p_token)) = 0 then
     raise exception 'Fant ingen jobb for denne lenken';
@@ -248,7 +249,7 @@ begin
     raise exception 'Overnattingssted mangler';
   end if;
 
-  foreach required_key in array ['get_in', 'lydprove', 'get_in_show', 'showstart', 'curfew']
+  foreach required_key in array required_keys
   loop
     clock_value := p_produksjon->>required_key;
     if clock_value is null or clock_value !~ '^\d{2}:\d{2}$' then

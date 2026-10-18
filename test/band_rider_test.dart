@@ -4,6 +4,8 @@ import 'package:amundsen_booking/data/demo_portal_repository.dart';
 import 'package:amundsen_booking/models/band.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'demo_fixtures.dart';
+
 void main() {
   test('riders collect member profiles and keep the running order out', () {
     const band = Band(
@@ -55,16 +57,31 @@ void main() {
 
   test('an invite activates a member who must finish the profile', () async {
     final repository = DemoPortalRepository(clock: () => DateTime(2026, 10, 12));
+    final gig = await seedConfirmedGig(
+      repository,
+      clock: () => DateTime(2026, 10, 12),
+      date: DateTime(2026, 11, 15),
+    );
     await repository.signInArtist(
       email: DemoCatalog.artistEmail,
       password: DemoCatalog.artistPassword,
     );
+    await repository.updateBand(
+      name: 'Rolffa',
+      contact: 'rolffa@lavdi.no',
+      sharedTech: 'Stereomix til IEM.',
+      sharedHospitality: '2 enkeltrom.',
+    );
+    final invite = await repository.inviteMember(
+      email: 'lyd@lavdi.no',
+      role: 'Lydtekniker',
+    );
 
-    final preview = await repository.previewInvite('demo-lyd');
+    final preview = await repository.previewInvite(invite.token);
     expect(preview?.email, 'lyd@lavdi.no');
     expect(preview?.role, 'Lydtekniker');
 
-    final member = await repository.acceptInvite('demo-lyd');
+    final member = await repository.acceptInvite(invite.token);
     expect(member.profileComplete, isFalse);
     expect((await repository.fetchMyBand())!.me.profileComplete, isFalse);
 
@@ -77,11 +94,71 @@ void main() {
     );
     expect(saved.profileComplete, isTrue);
 
-    final riders = await repository.fetchRiders(DemoCatalog.productionToken);
+    final riders = await repository.fetchRiders(gig.bookingToken);
     expect(riders, isNotNull);
     final text = formatTechnicalRider(riders!.band, riders.members);
     expect(text, contains('Mats Hauge\nLydtekniker'));
     expect(text, contains('Ingen personlig IEM.'));
     expect(text, contains('Stereomix til IEM.'));
+  });
+
+  test('invitee can set a login password after accepting', () async {
+    final repository = DemoPortalRepository(clock: () => DateTime(2026, 10, 12));
+    await repository.signInArtist(
+      email: DemoCatalog.artistEmail,
+      password: DemoCatalog.artistPassword,
+    );
+    final invite = await repository.inviteMember(
+      email: 'lyd@lavdi.no',
+      role: 'Lydtekniker',
+    );
+    await repository.acceptInvite(invite.token);
+    await repository.setArtistPassword('nyttpass');
+    await repository.signOutArtist();
+    final session = await repository.signInArtist(
+      email: 'lyd@lavdi.no',
+      password: 'nyttpass',
+    );
+    expect(session.email, 'lyd@lavdi.no');
+  });
+
+  test('any band member can invite and update shared band info', () async {
+    final repository = DemoPortalRepository(clock: () => DateTime(2026, 10, 12));
+    await repository.signInArtist(
+      email: DemoCatalog.artistEmail,
+      password: DemoCatalog.artistPassword,
+    );
+    final invite = await repository.inviteMember(
+      email: 'lyd@lavdi.no',
+      role: 'Lydtekniker',
+    );
+    await repository.acceptInvite(invite.token);
+    await repository.saveMyProfile(
+      name: 'Mats Hauge',
+      role: 'Lydtekniker',
+      phone: '900 33 441',
+      food: 'Ingen allergier.',
+      personalTech: 'Ingen personlig IEM.',
+    );
+
+    final overview = await repository.fetchMyBand();
+    expect(overview!.me.isLeader, isFalse);
+    expect(overview.invites, isEmpty);
+
+    final nextInvite = await repository.inviteMember(
+      email: 'ny@lavdi.no',
+      role: 'Musiker',
+    );
+    expect(nextInvite.email, 'ny@lavdi.no');
+    expect((await repository.fetchMyBand())!.invites, isNotEmpty);
+
+    final band = await repository.updateBand(
+      name: 'Rolffa Live',
+      contact: 'mats@lavdi.no',
+      sharedTech: 'Ny tech.',
+      sharedHospitality: 'Ny hospitality.',
+    );
+    expect(band.name, 'Rolffa Live');
+    expect(band.sharedTech, 'Ny tech.');
   });
 }

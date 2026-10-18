@@ -23,7 +23,6 @@ class _CrewTravelSectionState extends State<CrewTravelSection> {
   List<CrewLeg> _crew = const [];
   var _loading = true;
   String? _error;
-  var _leader = false;
 
   @override
   void initState() {
@@ -36,11 +35,9 @@ class _CrewTravelSectionState extends State<CrewTravelSection> {
   Future<void> _load() async {
     try {
       final repository = PortalScope.of(context).repository;
-      final band = await repository.fetchMyBand();
       final crew = await repository.fetchCrewTravel(widget.gig.id);
       if (!mounted) return;
       setState(() {
-        _leader = band?.me.isLeader ?? false;
         _crew = crew;
         _loading = false;
         _error = null;
@@ -75,7 +72,6 @@ class _CrewTravelSectionState extends State<CrewTravelSection> {
           _CrewCard(
             gig: widget.gig,
             leg: leg,
-            leader: _leader,
             onChanged: (crew) => setState(() => _crew = crew),
           ),
           const SizedBox(height: 12),
@@ -89,13 +85,11 @@ class _CrewCard extends StatefulWidget {
   const _CrewCard({
     required this.gig,
     required this.leg,
-    required this.leader,
     required this.onChanged,
   });
 
   final Gig gig;
   final CrewLeg leg;
-  final bool leader;
   final ValueChanged<List<CrewLeg>> onChanged;
 
   @override
@@ -216,13 +210,12 @@ class _CrewCardState extends State<_CrewCard> {
             style: theme.textTheme.titleMedium?.copyWith(color: AppColors.ink),
           ),
           Text(leg.role),
-          if (widget.leader)
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Med på denne konserten'),
-              value: leg.active,
-              onChanged: _busy ? null : _setActive,
-            ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Med på denne konserten'),
+            value: leg.active,
+            onChanged: _busy ? null : _setActive,
+          ),
           if (!leg.active)
             const Text('Ikke med på denne konserten.')
           else ...[
@@ -246,7 +239,9 @@ class _CrewCardState extends State<_CrewCard> {
             const SizedBox(height: 8),
             TextField(
               controller: _pickup,
-              decoration: const InputDecoration(labelText: 'Hentested'),
+              style: portalFieldStyle,
+              cursorColor: AppColors.ink,
+              decoration: fieldDecoration(label: 'Hentested'),
             ),
             const SizedBox(height: 12),
             MomentField(
@@ -263,7 +258,9 @@ class _CrewCardState extends State<_CrewCard> {
             const SizedBox(height: 8),
             TextField(
               controller: _dropoff,
-              decoration: const InputDecoration(labelText: 'Avleveringssted'),
+              style: portalFieldStyle,
+              cursorColor: AppColors.ink,
+              decoration: fieldDecoration(label: 'Avleveringssted'),
             ),
             const SizedBox(height: 12),
             FilledButton(

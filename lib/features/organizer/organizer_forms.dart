@@ -138,16 +138,18 @@ class _OrganizerTravelPageState extends State<OrganizerTravelPage> {
                                 const SizedBox(height: 16),
                                 TextField(
                                   controller: _airport,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Nærmeste flyplass',
+                                  style: portalFieldStyle,
+                                  decoration: fieldDecoration(
+                                    label: 'Nærmeste flyplass',
                                   ),
                                 ),
                                 const SizedBox(height: 12),
                                 TextField(
                                   controller: _distance,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Avstand fra flyplass til spillested',
-                                    hintText: 'F.eks. 35 km / 40 minutter',
+                                  style: portalFieldStyle,
+                                  decoration: fieldDecoration(
+                                    label: 'Avstand fra flyplass til spillested',
+                                    helperText: 'F.eks. 35 km / 40 minutter',
                                   ),
                                 ),
                                 const SizedBox(height: 12),
@@ -155,9 +157,10 @@ class _OrganizerTravelPageState extends State<OrganizerTravelPage> {
                                   controller: _route,
                                   minLines: 2,
                                   maxLines: 4,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Mer info',
-                                    hintText:
+                                  style: portalFieldStyle,
+                                  decoration: fieldDecoration(
+                                    label: 'Mer info',
+                                    helperText:
                                         'Valgfritt – forklar reiseveien hvis den ikke er rett frem',
                                   ),
                                 ),
@@ -353,20 +356,23 @@ class _OrganizerDayPageState extends State<OrganizerDayPage> {
                                 ),
                                 TextField(
                                   controller: _dinner,
-                                  decoration: const InputDecoration(labelText: 'Middagssted'),
+                                  style: portalFieldStyle,
+                                  decoration: fieldDecoration(label: 'Middagssted'),
                                 ),
                                 const SizedBox(height: 12),
                                 TextField(
                                   controller: _hotelName,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Overnattingssted',
+                                  style: portalFieldStyle,
+                                  decoration: fieldDecoration(
+                                    label: 'Overnattingssted',
                                   ),
                                 ),
                                 const SizedBox(height: 12),
                                 TextField(
                                   controller: _hotelAddress,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Adresse for overnatting',
+                                  style: portalFieldStyle,
+                                  decoration: fieldDecoration(
+                                    label: 'Adresse for overnatting',
                                   ),
                                 ),
                                 const SizedBox(height: 12),
@@ -374,8 +380,9 @@ class _OrganizerDayPageState extends State<OrganizerDayPage> {
                                   controller: _notes,
                                   minLines: 3,
                                   maxLines: 6,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Andre detaljer om dagen',
+                                  style: portalFieldStyle,
+                                  decoration: fieldDecoration(
+                                    label: 'Andre detaljer om dagen',
                                   ),
                                 ),
                                 if (_error != null) ...[

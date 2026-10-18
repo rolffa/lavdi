@@ -3,16 +3,18 @@ import 'package:amundsen_booking/data/demo_catalog.dart';
 import 'package:amundsen_booking/data/demo_portal_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'demo_fixtures.dart';
+
 void main() {
   final clock = DateTime(2026, 10, 12);
 
   test('artist approves an offer into a concert and the date locks', () async {
     final repository = DemoPortalRepository(clock: () => clock);
+    await seedPendingOffer(repository);
     await repository.signInArtist(
       email: DemoCatalog.artistEmail,
       password: DemoCatalog.artistPassword,
     );
-    await repository.saveMyAvailability(dates: [DateTime(2026, 10, 24)], available: true);
     final open = await repository.fetchAvailability(
       artistId: DemoCatalog.linnId,
       from: DateTime(2026, 10, 24),
@@ -52,6 +54,7 @@ void main() {
 
   test('declining an offer requires a comment and can be undone', () async {
     final repository = DemoPortalRepository(clock: () => clock);
+    await seedPendingOffer(repository);
     await repository.signInArtist(
       email: DemoCatalog.artistEmail,
       password: DemoCatalog.artistPassword,

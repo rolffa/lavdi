@@ -276,16 +276,17 @@ class _SetlistPageState extends State<SetlistPage> {
                             const SizedBox(height: 8),
                             TextField(
                               controller: _extraTitle,
-                              decoration: const InputDecoration(
-                                labelText: 'Tittel',
-                              ),
+                              style: portalFieldStyle,
+                              cursorColor: AppColors.ink,
+                              decoration: fieldDecoration(label: 'Tittel'),
                             ),
                             const SizedBox(height: 8),
                             TextField(
                               controller: _extraDuration,
-                              decoration: const InputDecoration(
-                                labelText: 'Spilletid',
-                                hintText: '03:45',
+                              style: portalFieldStyle,
+                              cursorColor: AppColors.ink,
+                              decoration: fieldDecoration(
+                                label: 'Spilletid (03:45)',
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -295,12 +296,7 @@ class _SetlistPageState extends State<SetlistPage> {
                             ),
                             if (_formError != null) ...[
                               const SizedBox(height: 12),
-                              Text(
-                                _formError!,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.busy,
-                                ),
-                              ),
+                              FieldError(_formError!),
                             ],
                             const SizedBox(height: 20),
                             SizedBox(
