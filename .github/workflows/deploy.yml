@@ -13,7 +13,8 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  # Cancel stuck/queued deploys so a new push can take the runner (avoids pages queue deadlock).
+  cancel-in-progress: true
 
 jobs:
   build-and-deploy:
