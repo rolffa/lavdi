@@ -7,20 +7,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
-  # Cancel stuck/queued deploys so a new push can take the runner (avoids pages queue deadlock).
   cancel-in-progress: true
 
 jobs:
   build-and-deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -55,17 +49,18 @@ jobs:
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
           # GitHub Pages has no SPA rewrite; serve the app for deep links (/admin, /min-side).
           cp build/web/index.html build/web/404.html
+          printf 'www.lavdi.no\n' > build/web/CNAME
+          touch build/web/.nojekyll
           if ! grep -q '\.supabase\.co' build/web/main.dart.js; then
             echo "Build missing supabase.co host — check SUPABASE_URL secret (use full https URL or project ref)" >&2
             exit 1
           fi
           echo "SUPABASE host check OK"
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: build/web
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/web
+          force_orphan: true
+          enable_jekyll: false
