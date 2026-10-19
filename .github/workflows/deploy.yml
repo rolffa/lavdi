@@ -7,14 +7,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -49,18 +51,24 @@ jobs:
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
           # GitHub Pages has no SPA rewrite; serve the app for deep links (/admin, /min-side).
           cp build/web/index.html build/web/404.html
-          printf 'www.lavdi.no\n' > build/web/CNAME
-          touch build/web/.nojekyll
           if ! grep -q '\.supabase\.co' build/web/main.dart.js; then
-            echo "Build missing supabase.co host — check SUPABASE_URL secret (use full https URL or project ref)" >&2
+            echo "Build missing supabase.co host — check SUPABASE_URL secret" >&2
             exit 1
           fi
           echo "SUPABASE host check OK"
 
-      - name: Deploy to gh-pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: build/web
-          force_orphan: true
-          enable_jekyll: false
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
