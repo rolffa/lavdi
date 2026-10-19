@@ -631,9 +631,7 @@ class SupabasePortalRepository extends PortalRepository {
                 : 'Admin-funksjonen finnes ikke i databasen ennå. Kjør supabase/admin_calendar.sql og supabase/artist_publish.sql.',
       );
     }
-    final message = error.message.trim();
-    if (message.isNotEmpty) return PortalException(message);
-    return PortalException('Noe gikk galt. Prøv igjen.');
+    return PortalException(readableError(error));
   }
 
   @override

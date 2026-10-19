@@ -52,6 +52,13 @@ jobs:
           flutter build web --release --base-href "/" \
             --dart-define=SUPABASE_URL="$URL" \
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+          # GitHub Pages has no SPA rewrite; serve the app for deep links (/admin, /min-side).
+          cp build/web/index.html build/web/404.html
+          if ! grep -q '\.supabase\.co' build/web/main.dart.js; then
+            echo "Build missing supabase.co host — check SUPABASE_URL secret (use full https URL or project ref)" >&2
+            exit 1
+          fi
+          echo "SUPABASE host check OK"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
