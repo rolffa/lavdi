@@ -18,6 +18,8 @@ import '../models/booking_deal.dart';
 import '../models/booking_draft.dart';
 import '../models/booking_request.dart';
 import '../models/gig.dart';
+import '../models/member_conflict.dart';
+import '../models/musician_band.dart';
 import '../models/press_kit.dart';
 import '../models/production_plan.dart';
 import '../models/push_notice.dart';
@@ -818,12 +820,36 @@ class SupabasePortalRepository extends PortalRepository {
     await _client.rpc('attach_band_leader');
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return null;
-    final mine = await _client.from('band_members').select().eq('user_id', userId).maybeSingle();
-    if (mine == null) return null;
-    final bandId = mine['band_id'] as String;
+    String? bandId;
+    try {
+      final active = await _client.rpc('current_band_id');
+      if (active is String && active.isNotEmpty) bandId = active;
+    } catch (_) {}
+    Map<String, dynamic>? mine;
+    if (bandId != null) {
+      final row = await _client
+          .from('band_members')
+          .select()
+          .eq('user_id', userId)
+          .eq('band_id', bandId)
+          .maybeSingle();
+      if (row != null) mine = Map<String, dynamic>.from(row);
+    }
+    if (mine == null) {
+      final rows = await _client
+          .from('band_members')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(1);
+      if (rows is! List || rows.isEmpty) return null;
+      mine = Map<String, dynamic>.from(rows.first as Map);
+      bandId = mine['band_id'] as String?;
+    }
+    if (mine == null || bandId == null) return null;
     final bandRow = await _client.from('bands').select().eq('id', bandId).single();
     final memberRows = await _client.from('band_members').select().eq('band_id', bandId).order('navn');
-    final me = BandMember.fromJson(Map<String, dynamic>.from(mine));
+    final me = BandMember.fromJson(mine);
     final inviteRows = await _client
         .from('band_invites')
         .select()
@@ -841,6 +867,96 @@ class SupabasePortalRepository extends PortalRepository {
       ],
       invites: invites,
     );
+  }
+
+  @override
+  Future<List<MusicianBand>> fetchMyBands() async {
+    if (_client.auth.currentSession == null &&
+        !(_adminViewAsArtist != null && _adminSignedIn)) {
+      return const [];
+    }
+    try {
+      final result = await _client.rpc('my_bands');
+      if (result is! List) return const [];
+      return [
+        for (final row in result)
+          if (row is Map)
+            MusicianBand.fromJson(Map<String, dynamic>.from(row)),
+      ];
+    } catch (_) {
+      final overview = await fetchMyBand();
+      if (overview == null) return const [];
+      return [
+        MusicianBand(
+          bandId: overview.band.id,
+          bandName: overview.band.name,
+          artistId: overview.band.artistId ?? '',
+          artistName: overview.band.name,
+          role: overview.me.role,
+          isActive: true,
+        ),
+      ];
+    }
+  }
+
+  @override
+  Future<void> setActiveBand(String bandId) async {
+    final id = bandId.trim();
+    if (id.isEmpty) return;
+    try {
+      await _client.rpc('set_active_band', params: {'p_band_id': id});
+    } on PostgrestException catch (error) {
+      final message = error.message.trim();
+      if (message.isNotEmpty) throw PortalException(message);
+      throw PortalException('Kunne ikke bytte band.');
+    }
+    notifyListeners();
+  }
+
+  @override
+  Future<List<CombinedCalendarMark>> fetchCombinedCalendar({
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    if (_client.auth.currentSession == null &&
+        !(_adminViewAsArtist != null && _adminSignedIn)) {
+      return const [];
+    }
+    try {
+      final rows = await _client.rpc(
+        'my_combined_calendar',
+        params: {
+          'p_from': formatIsoDate(from),
+          'p_to': formatIsoDate(to),
+        },
+      );
+      if (rows is! List) return const [];
+      return [
+        for (final row in rows)
+          if (row is Map)
+            CombinedCalendarMark.fromJson(Map<String, dynamic>.from(row)),
+      ];
+    } catch (_) {
+      final overview = await fetchMyBand();
+      final session = await currentArtist();
+      if (overview == null || session == null) return const [];
+      final days = await fetchAvailability(
+        artistId: session.artistId,
+        from: from,
+        to: to,
+      );
+      return [
+        for (final day in days)
+          CombinedCalendarMark(
+            date: dateOnly(day.date),
+            bandId: overview.band.id,
+            bandName: overview.band.name,
+            artistId: session.artistId,
+            isAvailable: day.isAvailable,
+            isBooked: day.isBooked,
+          ),
+      ];
+    }
   }
 
   Future<BandOverview?> _fetchAdminBandOverview(String artistId) async {
@@ -1284,6 +1400,47 @@ class SupabasePortalRepository extends PortalRepository {
       for (final item in result)
         if (item is Map) ArtistOffer.fromJson(Map<String, dynamic>.from(item)),
     ];
+  }
+
+  @override
+  Future<List<MemberDateConflict>> fetchMemberConflicts({
+    required String artistId,
+    required DateTime date,
+  }) async {
+    try {
+      if (isAdminSignedIn) {
+        final pin = _requireAdmin();
+        final result = await _client.rpc(
+          'admin_member_conflicts_on_date',
+          params: {
+            'p_pin': pin,
+            'p_artist_id': artistId,
+            'p_dato': formatIsoDate(date),
+          },
+        );
+        return parseMemberConflicts(result);
+      }
+      final result = await _client.rpc(
+        'member_conflicts_on_date',
+        params: {
+          'p_artist_id': artistId,
+          'p_dato': formatIsoDate(date),
+        },
+      );
+      return parseMemberConflicts(result);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  @override
+  Future<List<MemberDateConflict>> fetchMyBandBusyNotices() async {
+    try {
+      final result = await _client.rpc('my_band_busy_notices');
+      return parseMemberConflicts(result);
+    } catch (_) {
+      return const [];
+    }
   }
 
   @override

@@ -344,20 +344,12 @@ class _BandPageState extends State<BandPage> {
                           ),
                         ),
                       const SizedBox(height: 8),
-                      if (_isSoleLeader(member))
-                        Text(
-                          'Eneste bandleder kan ikke fjernes. Inviter flere først.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppColors.muted,
-                          ),
-                        )
-                      else
-                        TextButton(
-                          onPressed: _saving
-                              ? null
-                              : () => _removeMember(member),
-                          child: const Text('Fjern'),
-                        ),
+                      TextButton(
+                        onPressed: _saving
+                            ? null
+                            : () => _removeMember(member),
+                        child: const Text('Fjern'),
+                      ),
                     ],
                   ),
                 ),

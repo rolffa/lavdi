@@ -1,4 +1,5 @@
 import '../core/format.dart';
+import 'member_conflict.dart';
 
 class ArtistOffer {
   const ArtistOffer({
@@ -14,6 +15,7 @@ class ArtistOffer {
     this.artistName = '',
     this.deadline,
     this.bookingId = '',
+    this.conflicts = const [],
   });
 
   final String id;
@@ -28,6 +30,7 @@ class ArtistOffer {
   final String artistName;
   final DateTime? deadline;
   final String bookingId;
+  final List<MemberDateConflict> conflicts;
 
   bool get pending => status == 'pending';
   bool get declined => status == 'declined';
@@ -49,6 +52,7 @@ class ArtistOffer {
       artistName: (json['artist_navn'] as String?)?.trim() ?? '',
       deadline: _timestamp(json['svarfrist']),
       bookingId: (json['booking_id'] as String?)?.trim() ?? '',
+      conflicts: parseMemberConflicts(json['konflikter']),
     );
   }
 

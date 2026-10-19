@@ -12,6 +12,8 @@ import '../models/booking_deal.dart';
 import '../models/booking_draft.dart';
 import '../models/booking_request.dart';
 import '../models/gig.dart';
+import '../models/member_conflict.dart';
+import '../models/musician_band.dart';
 import '../models/press_kit.dart';
 import '../models/production_plan.dart';
 import '../models/push_notice.dart';
@@ -155,6 +157,18 @@ abstract class PortalRepository extends ChangeNotifier {
 
   Future<BandOverview?> fetchMyBand();
 
+  /// All bands the signed-in musician belongs to (for switcher / combined calendar).
+  Future<List<MusicianBand>> fetchMyBands();
+
+  /// Sets which band the portal works in (profile, riders, single-band calendar edits).
+  Future<void> setActiveBand(String bandId);
+
+  /// Available and booked days across every membership, stamped with band name.
+  Future<List<CombinedCalendarMark>> fetchCombinedCalendar({
+    required DateTime from,
+    required DateTime to,
+  });
+
   /// Ensures the signed-in (or admin-viewed) artist has a band, then returns it.
   Future<BandOverview> ensureMyBand();
 
@@ -224,6 +238,15 @@ abstract class PortalRepository extends ChangeNotifier {
   });
 
   Future<List<ArtistOffer>> fetchMyOffers();
+
+  /// Members of [artistId]'s band who are booked with another band on [date].
+  Future<List<MemberDateConflict>> fetchMemberConflicts({
+    required String artistId,
+    required DateTime date,
+  });
+
+  /// Upcoming dates where the active band's members are booked elsewhere.
+  Future<List<MemberDateConflict>> fetchMyBandBusyNotices();
 
   Future<void> respondToOffer({
     required String offerId,

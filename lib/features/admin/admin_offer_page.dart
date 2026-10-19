@@ -7,6 +7,8 @@ import '../../core/portal_scope.dart';
 import '../../core/theme.dart';
 import '../../models/artist.dart';
 import '../../models/artist_offer.dart';
+import '../../models/member_conflict.dart';
+import '../shared/member_conflict_notice.dart';
 import '../shell/portal_scaffold.dart';
 import 'admin_login.dart';
 
@@ -30,6 +32,8 @@ class _AdminOfferPageState extends State<AdminOfferPage> {
   List<ArtistOffer> _declined = const [];
   String? _artistId;
   DateTime? _date;
+  List<MemberDateConflict> _conflicts = const [];
+  var _loadingConflicts = false;
   var _sending = false;
   String? _error;
   String? _message;
@@ -88,6 +92,32 @@ class _AdminOfferPageState extends State<AdminOfferPage> {
     );
     if (picked == null || !mounted) return;
     setState(() => _date = dateOnly(picked));
+    await _loadConflicts();
+  }
+
+  Future<void> _loadConflicts() async {
+    final artistId = _artistId;
+    final date = _date;
+    if (artistId == null || date == null) {
+      setState(() => _conflicts = const []);
+      return;
+    }
+    setState(() => _loadingConflicts = true);
+    try {
+      final conflicts = await PortalScope.of(context).repository
+          .fetchMemberConflicts(artistId: artistId, date: date);
+      if (!mounted) return;
+      setState(() {
+        _conflicts = conflicts;
+        _loadingConflicts = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _conflicts = const [];
+        _loadingConflicts = false;
+      });
+    }
   }
 
   Future<void> _send() async {
@@ -204,7 +234,10 @@ class _AdminOfferPageState extends State<AdminOfferPage> {
                       ],
                       onChanged: _sending
                           ? null
-                          : (value) => setState(() => _artistId = value),
+                          : (value) {
+                              setState(() => _artistId = value);
+                              _loadConflicts();
+                            },
                     ),
                     const SizedBox(height: 12),
                     OutlinedButton(
@@ -213,6 +246,17 @@ class _AdminOfferPageState extends State<AdminOfferPage> {
                         _date == null ? 'Velg dato' : formatLongDate(_date!),
                       ),
                     ),
+                    if (_loadingConflicts) ...[
+                      const SizedBox(height: 12),
+                      const LinearProgressIndicator(minHeight: 2),
+                    ],
+                    if (_conflicts.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      MemberConflictNotice(
+                        conflicts: _conflicts,
+                        title: 'Obs: medlem opptatt i annet band',
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     PortalTextFormField(
                       controller: _venueController,

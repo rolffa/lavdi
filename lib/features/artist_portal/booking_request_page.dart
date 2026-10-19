@@ -5,6 +5,8 @@ import '../../core/format.dart';
 import '../../core/portal_scope.dart';
 import '../../core/theme.dart';
 import '../../models/booking_request.dart';
+import '../../models/member_conflict.dart';
+import '../shared/member_conflict_notice.dart';
 import '../shell/portal_scaffold.dart';
 import 'portal_widgets.dart';
 
@@ -19,6 +21,7 @@ class BookingRequestPage extends StatefulWidget {
 
 class _BookingRequestPageState extends State<BookingRequestPage> {
   BookingRequest? _request;
+  List<MemberDateConflict> _conflicts = const [];
   Object? _error;
   var _loading = true;
 
@@ -36,11 +39,22 @@ class _BookingRequestPageState extends State<BookingRequestPage> {
       _error = null;
     });
     try {
-      final request = await PortalScope.of(context).repository
-          .fetchBookingRequest(widget.requestId);
+      final repository = PortalScope.of(context).repository;
+      final request = await repository.fetchBookingRequest(widget.requestId);
+      var conflicts = const <MemberDateConflict>[];
+      if (request != null) {
+        final session = await repository.currentArtist();
+        if (session != null) {
+          conflicts = await repository.fetchMemberConflicts(
+            artistId: session.artistId,
+            date: request.date,
+          );
+        }
+      }
       if (!mounted) return;
       setState(() {
         _request = request;
+        _conflicts = conflicts;
         _loading = false;
       });
     } catch (error) {
@@ -114,6 +128,13 @@ class _BookingRequestPageState extends State<BookingRequestPage> {
                         _Line(label: 'Telefon', value: request.phone),
                         if (request.notes.isNotEmpty)
                           _Line(label: 'Notater', value: request.notes),
+                        if (_conflicts.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          MemberConflictNotice(
+                            conflicts: _conflicts,
+                            onImage: true,
+                          ),
+                        ],
                       ],
                     ],
                   ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import 'band_switcher_bar.dart';
 
 class ArtistMenu extends StatelessWidget {
   const ArtistMenu({super.key});
@@ -20,29 +21,35 @@ class ArtistMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final path = GoRouterState.of(context).uri.path;
     final current = _currentItem(path);
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: AppColors.paper,
-        border: Border(bottom: BorderSide(color: AppColors.line)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Center(
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final item in items)
-                _MenuButton(
-                  label: item.$1,
-                  selected: item.$1 == current,
-                  onPressed: () => context.go(item.$2),
-                ),
-            ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        DecoratedBox(
+          decoration: const BoxDecoration(
+            color: AppColors.paper,
+            border: Border(bottom: BorderSide(color: AppColors.line)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Center(
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final item in items)
+                    _MenuButton(
+                      label: item.$1,
+                      selected: item.$1 == current,
+                      onPressed: () => context.go(item.$2),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
-      ),
+        const BandSwitcherBar(),
+      ],
     );
   }
 }

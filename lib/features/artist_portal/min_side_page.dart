@@ -11,6 +11,8 @@ import '../../models/artist_offer.dart';
 import '../../models/artist_session.dart';
 import '../../models/band.dart';
 import '../../models/gig.dart';
+import '../../models/member_conflict.dart';
+import '../shared/member_conflict_notice.dart';
 import '../shell/portal_scaffold.dart';
 import 'portal_widgets.dart';
 import 'profile_form.dart';
@@ -28,6 +30,7 @@ class _MinSidePageState extends State<MinSidePage> {
   BandOverview? _band;
   List<Gig> _gigs = const [];
   List<ArtistOffer> _offers = const [];
+  List<MemberDateConflict> _busyNotices = const [];
   String? _reportGigId;
   String? _offerBusy;
   String? _offerError;
@@ -85,6 +88,7 @@ class _MinSidePageState extends State<MinSidePage> {
       final band = await repository.fetchMyBand();
       final gigs = await repository.fetchMyGigs();
       final offers = await repository.fetchMyOffers();
+      final busyNotices = await repository.fetchMyBandBusyNotices();
       String? reportId;
       final today = dateOnly(DateTime.now());
       for (final gig in gigs) {
@@ -104,6 +108,7 @@ class _MinSidePageState extends State<MinSidePage> {
         _band = band;
         _gigs = gigs;
         _offers = offers;
+        _busyNotices = busyNotices;
         _reportGigId = reportId;
         _offerBusy = null;
         _loading = false;
@@ -213,6 +218,7 @@ class _MinSidePageState extends State<MinSidePage> {
                     session: _session!,
                     gigs: _gigs,
                     offers: _offers,
+                    busyNotices: _busyNotices,
                     reportGigId: _reportGigId,
                     offerBusyId: _offerBusy,
                     offerError: _offerError,
@@ -327,12 +333,15 @@ class _LoginPanelState extends State<_LoginPanel> {
             ),
             if (_message != null) ...[
               const SizedBox(height: 12),
-              Text(
-                _message!,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: _messageIsError ? AppColors.busy : AppColors.onImage,
+              if (_messageIsError)
+                FieldError(_message!)
+              else
+                Text(
+                  _message!,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onImage,
+                  ),
                 ),
-              ),
             ],
             const SizedBox(height: 20),
             SizedBox(
@@ -354,6 +363,7 @@ class _Home extends StatelessWidget {
     required this.session,
     required this.gigs,
     required this.offers,
+    required this.busyNotices,
     required this.reportGigId,
     required this.offerBusyId,
     required this.offerError,
@@ -366,6 +376,7 @@ class _Home extends StatelessWidget {
   final ArtistSession session;
   final List<Gig> gigs;
   final List<ArtistOffer> offers;
+  final List<MemberDateConflict> busyNotices;
   final String? reportGigId;
   final String? offerBusyId;
   final String? offerError;
@@ -410,6 +421,14 @@ class _Home extends StatelessWidget {
               showPushCard(isLeader: member!.isLeader, role: member!.role)) ...[
             const SizedBox(height: 16),
             LeaderMailCard(email: session.email),
+          ],
+          if (busyNotices.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            MemberConflictNotice(
+              conflicts: busyNotices,
+              title: 'Medlemmer opptatt i andre band',
+              onImage: true,
+            ),
           ],
           const SizedBox(height: 16),
           if (report != null) ...[
@@ -731,6 +750,13 @@ class _OfferCard extends StatelessWidget {
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: AppColors.muted,
               ),
+            ),
+          ],
+          if (offer.conflicts.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            MemberConflictNotice(
+              conflicts: offer.conflicts,
+              compact: true,
             ),
           ],
           if (offer.declined) ...[

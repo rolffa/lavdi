@@ -10,7 +10,9 @@ import '../../core/portal_scope.dart';
 import '../../core/theme.dart';
 import '../../core/travel_pdf.dart';
 import '../../models/booking_deal.dart';
+import '../../models/member_conflict.dart';
 import '../../web/rider_files.dart';
+import '../shared/member_conflict_notice.dart';
 import '../shell/portal_scaffold.dart';
 import 'admin_login.dart';
 
@@ -145,12 +147,16 @@ class _DealCardState extends State<_DealCard> {
   late final TextEditingController _message;
   var _busy = false;
   String? _error;
+  List<MemberDateConflict> _conflicts = const [];
 
   @override
   void initState() {
     super.initState();
     _fee = TextEditingController(text: widget.deal.fee?.toString() ?? '');
     _message = TextEditingController(text: widget.deal.message);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadConflicts();
+    });
   }
 
   @override
@@ -159,6 +165,22 @@ class _DealCardState extends State<_DealCard> {
     if (oldWidget.deal.id != widget.deal.id || oldWidget.deal.status != widget.deal.status) {
       _fee.text = widget.deal.fee?.toString() ?? '';
       _message.text = widget.deal.message;
+      _loadConflicts();
+    }
+  }
+
+  Future<void> _loadConflicts() async {
+    try {
+      final conflicts = await PortalScope.of(context).repository
+          .fetchMemberConflicts(
+            artistId: widget.deal.artistId,
+            date: widget.deal.date,
+          );
+      if (!mounted) return;
+      setState(() => _conflicts = conflicts);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _conflicts = const []);
     }
   }
 
@@ -248,6 +270,14 @@ class _DealCardState extends State<_DealCard> {
             if (deal.declined && deal.declineComment.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text('Avslag: ${deal.declineComment}'),
+            ],
+            if (_conflicts.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              MemberConflictNotice(
+                conflicts: _conflicts,
+                title: 'Obs: medlem opptatt i annet band',
+                compact: true,
+              ),
             ],
             const SizedBox(height: 12),
             _actions(deal, expired),

@@ -38,10 +38,20 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: >
-          flutter build web --release --base-href "/"
-          --dart-define=SUPABASE_URL=$SUPABASE_URL
-          --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+        run: |
+          set -euo pipefail
+          URL="${SUPABASE_URL:-}"
+          # Accept bare project ref from secrets (e.g. abcd1234 → https://abcd1234.supabase.co).
+          if [[ -n "$URL" && "$URL" != http://* && "$URL" != https://* ]]; then
+            URL="https://${URL}.supabase.co"
+          fi
+          if [[ -z "$URL" || -z "${SUPABASE_ANON_KEY:-}" ]]; then
+            echo "Missing SUPABASE_URL or SUPABASE_ANON_KEY secrets" >&2
+            exit 1
+          fi
+          flutter build web --release --base-href "/" \
+            --dart-define=SUPABASE_URL="$URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

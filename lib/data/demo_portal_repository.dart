@@ -22,6 +22,8 @@ import '../models/booking_deal.dart';
 import '../models/booking_draft.dart';
 import '../models/booking_request.dart';
 import '../models/gig.dart';
+import '../models/member_conflict.dart';
+import '../models/musician_band.dart';
 import '../models/press_kit.dart';
 import '../models/leader_mail.dart';
 import '../models/push_notice.dart';
@@ -689,6 +691,53 @@ class DemoPortalRepository extends PortalRepository {
   }
 
   @override
+  Future<List<MusicianBand>> fetchMyBands() async {
+    final overview = await fetchMyBand();
+    if (overview == null) return const [];
+    return [
+      MusicianBand(
+        bandId: overview.band.id,
+        bandName: overview.band.name,
+        artistId: overview.band.artistId ?? _session?.artistId ?? '',
+        artistName: overview.band.name,
+        role: overview.me.role,
+        isActive: true,
+      ),
+    ];
+  }
+
+  @override
+  Future<void> setActiveBand(String bandId) async {
+    notifyListeners();
+  }
+
+  @override
+  Future<List<CombinedCalendarMark>> fetchCombinedCalendar({
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final overview = await fetchMyBand();
+    final session = await currentArtist();
+    if (overview == null || session == null) return const [];
+    final days = await fetchAvailability(
+      artistId: session.artistId,
+      from: from,
+      to: to,
+    );
+    return [
+      for (final day in days)
+        CombinedCalendarMark(
+          date: dateOnly(day.date),
+          bandId: overview.band.id,
+          bandName: overview.band.name,
+          artistId: session.artistId,
+          isAvailable: day.isAvailable,
+          isBooked: day.isBooked,
+        ),
+    ];
+  }
+
+  @override
   Future<BandOverview> ensureMyBand() async {
     final session = await currentArtist();
     if (session == null) throw PortalException('Logg inn på nytt.');
@@ -1063,6 +1112,19 @@ class DemoPortalRepository extends PortalRepository {
       return a.date.compareTo(b.date);
     });
     return mine;
+  }
+
+  @override
+  Future<List<MemberDateConflict>> fetchMemberConflicts({
+    required String artistId,
+    required DateTime date,
+  }) async {
+    return const [];
+  }
+
+  @override
+  Future<List<MemberDateConflict>> fetchMyBandBusyNotices() async {
+    return const [];
   }
 
   @override
