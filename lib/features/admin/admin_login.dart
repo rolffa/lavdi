@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/errors.dart';
 import '../../core/portal_scope.dart';
 import '../../core/theme.dart';
-import '../../data/demo_catalog.dart';
 
 class AdminLogin extends StatefulWidget {
   const AdminLogin({super.key, required this.onSignedIn});
@@ -52,7 +51,6 @@ class _AdminLoginState extends State<AdminLogin> {
 
   @override
   Widget build(BuildContext context) {
-    final demo = PortalScope.of(context).demoMode;
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: AppColors.surface,
@@ -93,12 +91,6 @@ class _AdminLoginState extends State<AdminLogin> {
                 onPressed: _busy ? null : _submit,
                 child: Text(_busy ? 'Logger inn…' : 'Logg inn'),
               ),
-              if (demo) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Demomodus. Brukernavn ${DemoCatalog.adminUsername}, passord ${DemoCatalog.adminPassword}.',
-                ),
-              ],
             ],
           ),
         ),

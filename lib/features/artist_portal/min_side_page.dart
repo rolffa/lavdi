@@ -7,7 +7,6 @@ import '../../core/format.dart';
 import '../../core/portal_scope.dart';
 import '../../core/setlist_logic.dart';
 import '../../core/theme.dart';
-import '../../data/demo_catalog.dart';
 import '../../models/artist_offer.dart';
 import '../../models/artist_session.dart';
 import '../../models/band.dart';
@@ -282,7 +281,6 @@ class _LoginPanelState extends State<_LoginPanel> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final demo = PortalScope.of(context).demoMode;
     return ArtistFrame(
       child: Form(
         key: _formKey,
@@ -344,29 +342,6 @@ class _LoginPanelState extends State<_LoginPanel> {
                 child: Text(_busy ? 'Logger inn…' : 'Logg inn'),
               ),
             ),
-            if (demo) ...[
-              const SizedBox(height: 20),
-              Text(
-                'Demobruker: ${DemoCatalog.artistEmail} / ${DemoCatalog.artistPassword}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.onImageMuted,
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: _busy
-                      ? null
-                      : () async {
-                          _email.text = DemoCatalog.artistEmail;
-                          _password.text = DemoCatalog.artistPassword;
-                          await _signIn();
-                        },
-                  child: const Text('Logg inn som Rolffa'),
-                ),
-              ),
-            ],
           ],
         ),
       ),
