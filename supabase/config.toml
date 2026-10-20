@@ -1,0 +1,5 @@
+# Minimal config for Edge Functions. Full local stack is not required.
+
+[functions.send-invite-email]
+enabled = true
+verify_jwt = false

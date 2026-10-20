@@ -966,6 +966,7 @@ class DemoPortalRepository extends PortalRepository {
     final preview = await previewInvite(token);
     if (preview == null) throw PortalException('Invitasjonen finnes ikke.');
     if (preview.used) throw PortalException('Invitasjonen er allerede brukt.');
+    // Demo: ingen ekte e-post. Produksjon bruker Edge Function send-invite-email.
   }
 
   @override
@@ -1344,10 +1345,21 @@ class DemoPortalRepository extends PortalRepository {
 
   @override
   Future<PressKit?> fetchMyPressKit() async {
-    final me = _me();
-    if (me == null || _band?.artistId != _session?.artistId) return null;
-    final artist = _artist(_pressKit.artistId);
-    return _pressKit.copyWith(spotifyUri: artist?.spotifyUri ?? _pressKit.spotifyUri);
+    final session = _session ?? _adminViewAsArtist;
+    if (session == null) return null;
+    final overview = await fetchMyBand();
+    if (overview == null) return null;
+    final artistId = overview.band.artistId ?? session.artistId;
+    final artist = _artist(artistId);
+    final name = artist?.name ?? session.artistName;
+    return PressKit(
+      artistId: artistId,
+      artistName: name,
+      slug: artistSlug(name),
+      bio: _pressKit.bio,
+      spotifyUri: artist?.spotifyUri ?? _pressKit.spotifyUri,
+      photos: _pressKit.photos,
+    );
   }
 
   @override

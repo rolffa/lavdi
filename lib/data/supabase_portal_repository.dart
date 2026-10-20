@@ -861,6 +861,7 @@ class SupabasePortalRepository extends PortalRepository {
     if (_adminViewAsArtist != null && _adminSignedIn) {
       return _fetchAdminBandOverview(_adminViewAsArtist!.artistId);
     }
+    // Kun knytt placeholder uten user_id — aldri gjenopprett slettet bandleder.
     try {
       await _client.rpc('attach_band_leader');
     } catch (_) {}
@@ -891,21 +892,43 @@ class SupabasePortalRepository extends PortalRepository {
           .select()
           .eq('user_id', userId)
           .limit(5);
-      if (rows is! List || rows.isEmpty) return null;
-      final sorted = [
-        for (final row in rows) Map<String, dynamic>.from(row as Map),
-      ]..sort((a, b) {
-          final aAt = (a['created_at'] as String?) ?? '';
-          final bAt = (b['created_at'] as String?) ?? '';
-          return bAt.compareTo(aAt);
-        });
-      mine = sorted.first;
-      bandId = mine['band_id']?.toString();
+      if (rows is List && rows.isNotEmpty) {
+        final sorted = [
+          for (final row in rows) Map<String, dynamic>.from(row as Map),
+        ]..sort((a, b) {
+            final aAt = (a['created_at'] as String?) ?? '';
+            final bAt = (b['created_at'] as String?) ?? '';
+            return bAt.compareTo(aAt);
+          });
+        mine = sorted.first;
+        bandId = mine['band_id']?.toString();
+      }
     }
-    if (mine == null || bandId == null || bandId.isEmpty) return null;
-    final bandRow = await _client.from('bands').select().eq('id', bandId).single();
-    final memberRows = await _client.from('band_members').select().eq('band_id', bandId).order('navn');
-    final me = BandMember.fromJson(mine);
+    // Artist-eier kan ha band uten egen medlemsrad (etter slettet bandleder).
+    if (bandId == null || bandId.isEmpty) return null;
+    final bandRow =
+        await _client.from('bands').select().eq('id', bandId).single();
+    final memberRows = await _client
+        .from('band_members')
+        .select()
+        .eq('band_id', bandId)
+        .order('navn');
+    final members = [
+      for (final row in memberRows)
+        BandMember.fromJson(Map<String, dynamic>.from(row)),
+    ];
+    final me = mine != null
+        ? BandMember.fromJson(mine)
+        : BandMember(
+            id: bandId,
+            bandId: bandId,
+            name: 'Admin',
+            role: 'Admin',
+            phone: '',
+            food: '',
+            personalTech: '',
+            isLeader: true,
+          );
     final inviteRows = await _client
         .from('band_invites')
         .select()
@@ -918,9 +941,7 @@ class SupabasePortalRepository extends PortalRepository {
     return BandOverview(
       band: Band.fromJson(Map<String, dynamic>.from(bandRow)),
       me: me,
-      members: [
-        for (final row in memberRows) BandMember.fromJson(Map<String, dynamic>.from(row)),
-      ],
+      members: members,
       invites: invites,
     );
   }
@@ -1081,16 +1102,67 @@ class SupabasePortalRepository extends PortalRepository {
     }
     // Admin «se som artist» bruker admin_band_overview (kan mangle medlemsrad).
     if (_adminViewAsArtist != null && _adminSignedIn) {
-      final adminOverview = await _fetchAdminBandOverview(_adminViewAsArtist!.artistId);
+      final adminOverview =
+          await _fetchAdminBandOverview(_adminViewAsArtist!.artistId);
       if (adminOverview != null) return adminOverview;
     }
     final overview = await fetchMyBand();
-    if (overview == null) {
-      throw PortalException(
-        'Bandet mangler medlemskap. Kjør supabase/fix_create_band_member.sql.',
+    if (overview != null) return overview;
+    // Tomt band (ingen medlemmer) er gyldig til ny bandleder er invitert.
+    final empty = await _fetchOwnedBandWithoutMembership();
+    if (empty != null) return empty;
+    throw PortalException('Bandet ble ikke opprettet.');
+  }
+
+  /// Band for artist-eier / aktivt band uten egen medlemsrad.
+  Future<BandOverview?> _fetchOwnedBandWithoutMembership() async {
+    String? bandId;
+    try {
+      final active = await _client.rpc('current_band_id');
+      if (active != null) {
+        final value = active.toString().trim();
+        if (value.isNotEmpty && value != 'null') bandId = value;
+      }
+    } catch (_) {}
+    if (bandId == null || bandId.isEmpty) return null;
+    try {
+      final bandRow =
+          await _client.from('bands').select().eq('id', bandId).maybeSingle();
+      if (bandRow == null) return null;
+      final memberRows = await _client
+          .from('band_members')
+          .select()
+          .eq('band_id', bandId)
+          .order('navn');
+      final inviteRows = await _client
+          .from('band_invites')
+          .select()
+          .eq('band_id', bandId)
+          .isFilter('accepted_at', null);
+      return BandOverview(
+        band: Band.fromJson(Map<String, dynamic>.from(bandRow)),
+        me: BandMember(
+          id: bandId,
+          bandId: bandId,
+          name: 'Admin',
+          role: 'Admin',
+          phone: '',
+          food: '',
+          personalTech: '',
+          isLeader: true,
+        ),
+        members: [
+          for (final row in memberRows)
+            BandMember.fromJson(Map<String, dynamic>.from(row)),
+        ],
+        invites: [
+          for (final row in inviteRows)
+            BandInvite.fromJson(Map<String, dynamic>.from(row)),
+        ],
       );
+    } catch (_) {
+      return null;
     }
-    return overview;
   }
 
   @override
@@ -1348,9 +1420,74 @@ class SupabasePortalRepository extends PortalRepository {
     if (preview.used) throw PortalException('Invitasjonen er allerede brukt.');
     final redirectTo =
         '${AppConfig.environment.publicSiteUrl}/min-side/invitasjon/$token';
+
+    // Primært: norsk e-post med magic link + PDF-manual via Edge Function.
+    try {
+      final response = await _client.functions.invoke(
+        'send-invite-email',
+        body: {'token': token},
+      );
+      final data = response.data;
+      if (response.status >= 200 && response.status < 300) {
+        if (data is Map && data['error'] != null) {
+          final message = data['error'].toString().trim();
+          if (message.isNotEmpty) throw PortalException(message);
+        }
+        return;
+      }
+      final message = data is Map
+          ? (data['error'] as String?)?.trim() ?? ''
+          : '';
+      // 404/503 = funksjon/secret mangler → fallback til Auth OTP.
+      if (response.status == 404 ||
+          response.status == 503 ||
+          message.contains('RESEND_API_KEY')) {
+        await _sendInviteEmailOtp(
+          email: preview.email,
+          redirectTo: redirectTo,
+        );
+        return;
+      }
+      throw PortalException(
+        message.isNotEmpty
+            ? message
+            : 'Kunne ikke sende invitasjons-e-post.',
+      );
+    } on PortalException {
+      rethrow;
+    } on FunctionException catch (error) {
+      final status = error.status;
+      if (status == 404 || status == 503) {
+        await _sendInviteEmailOtp(
+          email: preview.email,
+          redirectTo: redirectTo,
+        );
+        return;
+      }
+      final details = error.details;
+      final message = details is Map
+          ? (details['error'] as String?)?.trim()
+          : null;
+      throw PortalException(
+        (message != null && message.isNotEmpty)
+            ? message
+            : 'Kunne ikke sende invitasjons-e-post.',
+      );
+    } catch (_) {
+      await _sendInviteEmailOtp(
+        email: preview.email,
+        redirectTo: redirectTo,
+      );
+    }
+  }
+
+  Future<void> _sendInviteEmailOtp({
+    required String email,
+    required String redirectTo,
+  }) async {
     try {
       await _client.auth.signInWithOtp(
-        email: preview.email,
+        email: email,
         emailRedirectTo: redirectTo,
         shouldCreateUser: true,
       );
@@ -1365,7 +1502,8 @@ class SupabasePortalRepository extends PortalRepository {
       throw PortalException(
         message.isNotEmpty
             ? message
-            : 'Kunne ikke sende aktiveringslenken. Sjekk at e-post er aktivert i Supabase Auth.',
+            : 'Kunne ikke sende aktiveringslenken. '
+                'Sjekk at e-post er aktivert i Supabase Auth.',
       );
     }
   }
@@ -1664,15 +1802,17 @@ class SupabasePortalRepository extends PortalRepository {
   }
 
   PressKit _pressKitFromRow({
-    required Artist artist,
+    required String artistId,
+    required String artistName,
+    required String spotifyUri,
     Map<String, dynamic>? row,
   }) {
     return PressKit(
-      artistId: artist.id,
-      artistName: artist.name,
-      slug: artistSlug(artist.name),
+      artistId: artistId,
+      artistName: artistName,
+      slug: artistSlug(artistName),
       bio: (row?['bio'] as String?)?.trim() ?? '',
-      spotifyUri: artist.spotifyUri,
+      spotifyUri: spotifyUri,
       photos: [
         _pressPhoto(1, row?['press_photo_1'] as String?),
         _pressPhoto(2, row?['press_photo_2'] as String?),
@@ -1681,20 +1821,63 @@ class SupabasePortalRepository extends PortalRepository {
     );
   }
 
+  /// Portal needs artist meta even when the artist is unpublished (RLS/public filter).
+  Future<({String name, String spotifyUri})> _portalArtistMeta({
+    required String artistId,
+    required ArtistSession session,
+    required BandOverview overview,
+  }) async {
+    try {
+      final row = await _client
+          .from('artists')
+          .select(_artistColumns)
+          .eq('id', artistId)
+          .maybeSingle();
+      if (row != null) {
+        final artist = Artist.fromRow(Map<String, dynamic>.from(row));
+        return (name: artist.name, spotifyUri: artist.spotifyUri);
+      }
+    } catch (_) {}
+
+    if (_adminViewAsArtist != null && _adminSignedIn) {
+      try {
+        final artists = await fetchAdminArtists();
+        for (final artist in artists) {
+          if (artist.id == artistId) {
+            return (name: artist.name, spotifyUri: artist.spotifyUri);
+          }
+        }
+      } catch (_) {}
+    }
+
+    final fallbackName = session.artistName.trim().isNotEmpty
+        ? session.artistName.trim()
+        : overview.band.name.trim();
+    return (name: fallbackName, spotifyUri: '');
+  }
+
   @override
   Future<PressKit?> fetchMyPressKit() async {
+    final session = await currentArtist();
+    if (session == null) return null;
     final overview = await fetchMyBand();
-    final artistId = overview?.band.artistId;
-    if (overview == null || artistId == null) return null;
-    final artist = await fetchArtist(artistId);
-    if (artist == null) return null;
+    if (overview == null) return null;
+    final artistId = overview.band.artistId ?? session.artistId;
+    if (artistId.isEmpty) return null;
+    final meta = await _portalArtistMeta(
+      artistId: artistId,
+      session: session,
+      overview: overview,
+    );
     final row = await _client
         .from('band_press_kit')
         .select()
         .eq('band_id', overview.band.id)
         .maybeSingle();
     return _pressKitFromRow(
-      artist: artist,
+      artistId: artistId,
+      artistName: meta.name,
+      spotifyUri: meta.spotifyUri,
       row: row == null ? null : Map<String, dynamic>.from(row),
     );
   }
@@ -1702,13 +1885,29 @@ class SupabasePortalRepository extends PortalRepository {
   @override
   Future<PressKit> savePressBio(String bio) async {
     final overview = await fetchMyBand();
-    if (overview?.band.artistId == null) {
+    final artistId = overview?.band.artistId;
+    if (overview == null || artistId == null) {
       throw PortalException('Opprett bandet før du lager pressepakke.');
     }
-    await _client.from('band_press_kit').upsert({
-      'band_id': overview!.band.id,
-      'bio': bio.trim(),
-    });
+    if (_adminViewAsArtist != null && _adminSignedIn) {
+      try {
+        await _client.rpc(
+          'admin_upsert_band_press_kit',
+          params: {
+            'p_pin': _requireAdmin(),
+            'p_artist_id': artistId,
+            'p_bio': bio.trim(),
+          },
+        );
+      } on PostgrestException catch (error) {
+        throw _adminError(error);
+      }
+    } else {
+      await _client.from('band_press_kit').upsert({
+        'band_id': overview.band.id,
+        'bio': bio.trim(),
+      });
+    }
     final kit = await fetchMyPressKit();
     if (kit == null) throw PortalException('Pressepakken kunne ikke lagres.');
     return kit;
@@ -1745,10 +1944,25 @@ class SupabasePortalRepository extends PortalRepository {
     } on StorageException {
       throw PortalException('Pressebildet kunne ikke lagres.');
     }
-    await _client.from('band_press_kit').upsert({
-      'band_id': overview.band.id,
-      'press_photo_$slot': path,
-    });
+    if (_adminViewAsArtist != null && _adminSignedIn) {
+      try {
+        await _client.rpc(
+          'admin_upsert_band_press_kit',
+          params: {
+            'p_pin': _requireAdmin(),
+            'p_artist_id': artistId,
+            'p_press_photo_$slot': path,
+          },
+        );
+      } on PostgrestException catch (error) {
+        throw _adminError(error);
+      }
+    } else {
+      await _client.from('band_press_kit').upsert({
+        'band_id': overview.band.id,
+        'press_photo_$slot': path,
+      });
+    }
     final kit = await fetchMyPressKit();
     if (kit == null) throw PortalException('Pressebildet kunne ikke lagres.');
     final photos = List<PressPhoto?>.of(kit.photos);

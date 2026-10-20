@@ -45,12 +45,26 @@ class _PressKitPageState extends State<PressKitPage> {
       _error = null;
     });
     try {
-      final kit = await PortalScope.of(context).repository.fetchMyPressKit();
+      final repository = PortalScope.of(context).repository;
+      final session = await repository.currentArtist();
+      if (!mounted) return;
+      if (session == null) {
+        setState(() {
+          _kit = null;
+          _signedOut = true;
+          _loading = false;
+        });
+        return;
+      }
+      final kit = await repository.fetchMyPressKit();
       if (!mounted) return;
       _bio.text = kit?.bio ?? '';
       setState(() {
         _kit = kit;
-        _signedOut = kit == null;
+        _signedOut = false;
+        _error = kit == null
+            ? PortalException('Kunne ikke laste pressepakken.')
+            : null;
         _loading = false;
       });
     } catch (error) {
@@ -125,9 +139,14 @@ class _PressKitPageState extends State<PressKitPage> {
                           message: readableError(_error!),
                           onRetry: _load,
                         )
-                      : _signedOut || kit == null
+                      : _signedOut
                       ? const Text(
                           'Logg inn på Min side for å redigere pressepakken.',
+                        )
+                      : kit == null
+                      ? ErrorRetry(
+                          message: 'Kunne ikke laste pressepakken.',
+                          onRetry: _load,
                         )
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

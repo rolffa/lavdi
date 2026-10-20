@@ -220,7 +220,8 @@ class _InvitePageState extends State<InvitePage> {
                                 )
                               else ...[
                                 Text(
-                                  'Åpne aktiveringslenken fra e-posten din. Har du ikke fått den, kan du sende på nytt under.',
+                                  'Åpne aktiveringslenken fra e-posten din. '
+                                  'Har du ikke fått den, kan du sende på nytt under.',
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: AppColors.onImageMuted,
                                   ),

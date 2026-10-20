@@ -50,6 +50,13 @@ jobs:
             --dart-define=SUPABASE_URL="$URL" \
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
             --dart-define=PUBLIC_SITE_URL="https://www.lavdi.no"
+          # Manual PDF (Konto → Last ned manual). Prefer web/docs if present.
+          mkdir -p build/web/docs
+          if [[ -f web/docs/lavdi_manual.pdf ]]; then
+            cp web/docs/lavdi_manual.pdf build/web/docs/lavdi_manual.pdf
+          else
+            cp docs/lavdi_manual.pdf build/web/docs/lavdi_manual.pdf
+          fi
           # GitHub Pages has no SPA rewrite; serve the app for deep links (/admin, /min-side).
           cp build/web/index.html build/web/404.html
           if ! grep -q '\.supabase\.co' build/web/main.dart.js; then

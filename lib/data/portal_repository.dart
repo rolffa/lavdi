@@ -213,7 +213,7 @@ abstract class PortalRepository extends ChangeNotifier {
   /// Creates invite and e-mails the activation link to the address.
   Future<BandInvite> inviteMember({required String email, required String role});
 
-  /// Removes a band member. The sole band leader cannot be removed.
+  /// Removes a band member (inkl. bandleder).
   Future<void> removeMember(String memberId);
 
   /// Sends (or resends) the activation e-mail to the invited address.

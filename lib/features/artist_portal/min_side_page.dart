@@ -15,7 +15,6 @@ import '../../models/member_conflict.dart';
 import '../shared/member_conflict_notice.dart';
 import '../shell/portal_scaffold.dart';
 import 'portal_widgets.dart';
-import 'profile_form.dart';
 import 'push_card.dart';
 
 class MinSidePage extends StatefulWidget {
@@ -205,14 +204,6 @@ class _MinSidePageState extends State<MinSidePage> {
               children: [
                 if (_session == null)
                   _LoginPanel(onSignedIn: _load)
-                else if (_band != null &&
-                    !_band!.me.profileComplete &&
-                    !_session!.asAdmin)
-                  _ProfileGate(
-                    member: _band!.me,
-                    onSaved: _load,
-                    onSignOut: _signOut,
-                  )
                 else
                   _Home(
                     session: _session!,
@@ -516,67 +507,6 @@ class _Home extends StatelessWidget {
             past: true,
           ),
           const SizedBox(height: 24),
-          TextButton(onPressed: onSignOut, child: const Text('Logg ut')),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileGate extends StatelessWidget {
-  const _ProfileGate({
-    required this.member,
-    required this.onSaved,
-    required this.onSignOut,
-  });
-
-  final BandMember member;
-  final Future<void> Function() onSaved;
-  final VoidCallback onSignOut;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ArtistFrame(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Profilen må fylles ut',
-            style: theme.textTheme.displaySmall?.copyWith(
-              color: AppColors.onImage,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Navn, rolle, telefon, mat og tekniske behov lagres før du ser kjøreplanen.',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: AppColors.onImageMuted,
-            ),
-          ),
-          const SizedBox(height: 20),
-          MemberProfileForm(
-            initial: member,
-            onSave:
-                ({
-                  required String name,
-                  required String role,
-                  required String phone,
-                  required String food,
-                  required String personalTech,
-                  String? password,
-                }) async {
-                  await PortalScope.of(context).repository.saveMyProfile(
-                    name: name,
-                    role: role,
-                    phone: phone,
-                    food: food,
-                    personalTech: personalTech,
-                  );
-                  await onSaved();
-                },
-          ),
-          const SizedBox(height: 12),
           TextButton(onPressed: onSignOut, child: const Text('Logg ut')),
         ],
       ),

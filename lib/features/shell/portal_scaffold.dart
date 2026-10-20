@@ -154,13 +154,28 @@ class PortalHeader extends StatelessWidget {
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     );
+                    Future<void> goHeader(String path) async {
+                      // «Artist» skal være vanlig artistportal, ikke siste
+                      // admin «se som artist»-økt.
+                      if (path == '/min-side') {
+                        final repo = PortalScope.of(context).repository;
+                        if (repo.adminViewAsArtist != null) {
+                          try {
+                            await repo.closeArtistPortalAsAdmin();
+                          } catch (_) {}
+                        }
+                      }
+                      if (!context.mounted) return;
+                      context.go(path);
+                    }
+
                     final links = Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         for (final link in headerLinks)
                           TextButton(
                             style: linkStyle,
-                            onPressed: () => context.go(link.$2),
+                            onPressed: () => goHeader(link.$2),
                             child: Text(link.$1),
                           ),
                       ],

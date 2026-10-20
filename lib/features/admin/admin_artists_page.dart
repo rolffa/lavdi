@@ -108,13 +108,31 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
     }
   }
 
+  Future<void> _inviteLeader(Artist artist) async {
+    final result = await showDialog<_InviteDraft>(
+      context: context,
+      builder: (context) => _InviteMemberDialog(
+        artistName: artist.name,
+        asLeader: true,
+      ),
+    );
+    if (result == null || !mounted) return;
+    await _sendInvite(artist, result);
+  }
+
   Future<void> _inviteMember(Artist artist) async {
     final result = await showDialog<_InviteDraft>(
       context: context,
-      builder: (context) => _InviteMemberDialog(artistName: artist.name),
+      builder: (context) => _InviteMemberDialog(
+        artistName: artist.name,
+        asLeader: false,
+      ),
     );
     if (result == null || !mounted) return;
+    await _sendInvite(artist, result);
+  }
 
+  Future<void> _sendInvite(Artist artist, _InviteDraft draft) async {
     setState(() {
       _error = null;
       _status = null;
@@ -123,9 +141,9 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
       final repository = PortalScope.of(context).repository;
       final invite = await repository.adminInviteBandMember(
         artistId: artist.id,
-        email: result.email,
-        role: 'Bandleder',
-        asLeader: true,
+        email: draft.email,
+        role: draft.role,
+        asLeader: draft.asLeader,
       );
       final origin = AppConfig.environment.publicSiteUrl;
       final link = '$origin/min-side/invitasjon/${invite.token}';
@@ -144,8 +162,8 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
       if (!mounted) return;
       setState(() {
         _status =
-            'Invitasjon sendt til ${invite.email} for ${artist.name}. '
-            'Lenken er også kopiert.';
+            'Invitasjon som ${invite.role} sendt til ${invite.email} for '
+            '${artist.name}. Lenken er også kopiert.';
       });
     } catch (error) {
       if (!mounted) return;
@@ -173,8 +191,8 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Publiser eller skjul artistsider, inviter bandleder, '
-                  'og åpne artistportalen direkte uten å logge inn på nytt.',
+                  'Publiser eller skjul artistsider, inviter bandleder eller '
+                  'medlem, og åpne artistportalen direkte uten å logge inn på nytt.',
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: AppColors.onImage,
                   ),
@@ -227,7 +245,10 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
                               opening: _openingId == _artists[i].id,
                               onChanged: (value) =>
                                   _toggle(_artists[i], value),
-                              onInvite: () => _inviteMember(_artists[i]),
+                              onInviteLeader: () =>
+                                  _inviteLeader(_artists[i]),
+                              onInviteMember: () =>
+                                  _inviteMember(_artists[i]),
                               onOpenPortal: () => _openPortal(_artists[i]),
                             ),
                           ],
@@ -246,15 +267,24 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
 }
 
 class _InviteDraft {
-  const _InviteDraft({required this.email, required this.role});
+  const _InviteDraft({
+    required this.email,
+    required this.role,
+    required this.asLeader,
+  });
   final String email;
   final String role;
+  final bool asLeader;
 }
 
 class _InviteMemberDialog extends StatefulWidget {
-  const _InviteMemberDialog({required this.artistName});
+  const _InviteMemberDialog({
+    required this.artistName,
+    required this.asLeader,
+  });
 
   final String artistName;
+  final bool asLeader;
 
   @override
   State<_InviteMemberDialog> createState() => _InviteMemberDialogState();
@@ -262,25 +292,41 @@ class _InviteMemberDialog extends StatefulWidget {
 
 class _InviteMemberDialogState extends State<_InviteMemberDialog> {
   final _email = TextEditingController();
+  final _role = TextEditingController(text: 'Musiker');
 
   @override
   void dispose() {
     _email.dispose();
+    _role.dispose();
     super.dispose();
   }
 
   void _submit() {
     final email = _email.text.trim();
     if (email.isEmpty || !email.contains('@')) return;
+    if (widget.asLeader) {
+      Navigator.of(context).pop(
+        _InviteDraft(email: email, role: 'Bandleder', asLeader: true),
+      );
+      return;
+    }
+    final role = _role.text.trim().isEmpty ? 'Musiker' : _role.text.trim();
+    final lowered = role.toLowerCase();
+    if (lowered == 'bandleder' || lowered == 'leder') return;
     Navigator.of(context).pop(
-      _InviteDraft(email: email, role: 'Bandleder'),
+      _InviteDraft(email: email, role: role, asLeader: false),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return AlertDialog(
-      title: Text('Inviter bandleder til ${widget.artistName}'),
+      title: Text(
+        widget.asLeader
+            ? 'Inviter bandleder til ${widget.artistName}'
+            : 'Inviter medlem til ${widget.artistName}',
+      ),
       content: SizedBox(
         width: 360,
         child: Column(
@@ -288,11 +334,12 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Fra adminportalen inviteres bandleder. '
-              'Øvrige bandmedlemmer inviteres fra artistportalen.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.muted,
-                  ),
+              widget.asLeader
+                  ? 'Bandleder får full tilgang til artistportalen.'
+                  : 'Velg rolle for medlemmet (musiker, lydtekniker, turnéleder).',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.muted,
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -301,9 +348,40 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
               autofocus: true,
               style: portalFieldStyle,
               cursorColor: AppColors.ink,
-              decoration: fieldDecoration(label: 'E-post til bandleder'),
+              decoration: fieldDecoration(
+                label: widget.asLeader
+                    ? 'E-post til bandleder'
+                    : 'E-post til medlem',
+              ),
               onSubmitted: (_) => _submit(),
             ),
+            if (!widget.asLeader) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _role,
+                style: portalFieldStyle,
+                cursorColor: AppColors.ink,
+                decoration: fieldDecoration(
+                  label: 'Rolle',
+                  helperText: 'Musiker, lydtekniker eller turnéleder',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final role in const [
+                    'Musiker',
+                    'Lydtekniker',
+                    'Turnéleder',
+                  ])
+                    TextButton(
+                      onPressed: () => setState(() => _role.text = role),
+                      child: Text(role),
+                    ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -327,7 +405,8 @@ class _ArtistAdminRow extends StatelessWidget {
     required this.busy,
     required this.opening,
     required this.onChanged,
-    required this.onInvite,
+    required this.onInviteLeader,
+    required this.onInviteMember,
     required this.onOpenPortal,
   });
 
@@ -335,7 +414,8 @@ class _ArtistAdminRow extends StatelessWidget {
   final bool busy;
   final bool opening;
   final ValueChanged<bool> onChanged;
-  final VoidCallback onInvite;
+  final VoidCallback onInviteLeader;
+  final VoidCallback onInviteMember;
   final VoidCallback onOpenPortal;
 
   @override
@@ -345,7 +425,7 @@ class _ArtistAdminRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final stacked = constraints.maxWidth < 640;
+          final stacked = constraints.maxWidth < 720;
           final publish = Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -370,9 +450,13 @@ class _ArtistAdminRow extends StatelessWidget {
                 ),
             ],
           );
-          final inviteButton = TextButton(
-            onPressed: onInvite,
+          final inviteLeaderButton = TextButton(
+            onPressed: onInviteLeader,
             child: const Text('Inviter bandleder'),
+          );
+          final inviteMemberButton = TextButton(
+            onPressed: onInviteMember,
+            child: const Text('Inviter medlem'),
           );
           final openButton = TextButton(
             onPressed: opening ? null : onOpenPortal,
@@ -396,7 +480,8 @@ class _ArtistAdminRow extends StatelessWidget {
                 ],
                 const SizedBox(height: 8),
                 publish,
-                inviteButton,
+                inviteLeaderButton,
+                inviteMemberButton,
                 openButton,
               ],
             );
@@ -422,7 +507,8 @@ class _ArtistAdminRow extends StatelessWidget {
               ),
               publish,
               const SizedBox(width: 4),
-              inviteButton,
+              inviteLeaderButton,
+              inviteMemberButton,
               openButton,
             ],
           );

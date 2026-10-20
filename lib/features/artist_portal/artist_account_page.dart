@@ -1,14 +1,24 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/config.dart';
 import '../../core/errors.dart';
 import '../../core/portal_scope.dart';
 import '../../core/theme.dart';
 import '../../models/artist_session.dart';
+import '../../web/external_link.dart';
 import '../account/account_widgets.dart';
 import '../shell/portal_scaffold.dart';
+
+String _manualPdfUrl() {
+  if (kIsWeb) {
+    return Uri.base.resolve('docs/lavdi_manual.pdf').toString();
+  }
+  return '${AppConfig.environment.publicSiteUrl}/docs/lavdi_manual.pdf';
+}
 
 class ArtistAccountPage extends StatefulWidget {
   const ArtistAccountPage({super.key});
@@ -158,6 +168,21 @@ class _ArtistAccountPageState extends State<ArtistAccountPage> {
                                         newPassword: newPassword,
                                       );
                                 },
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            AccountSection(
+                              title: 'Manual',
+                              subtitle:
+                                  'Brukerveiledning for artistportalen (PDF).',
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: OutlinedButton.icon(
+                                  onPressed: () =>
+                                      openExternal(_manualPdfUrl()),
+                                  icon: const Icon(Icons.download_outlined),
+                                  label: const Text('Last ned manual'),
+                                ),
                               ),
                             ),
                           ],
