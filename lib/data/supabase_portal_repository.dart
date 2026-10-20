@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/artist_slug.dart';
+import '../core/config.dart';
 import '../core/errors.dart';
 import '../core/format.dart';
 import '../core/tono.dart';
@@ -549,6 +550,26 @@ class SupabasePortalRepository extends PortalRepository {
   }
 
   @override
+  Future<void> adminRemoveBandMember({
+    required String artistId,
+    required String memberId,
+  }) async {
+    final pin = _requireAdmin();
+    try {
+      await _client.rpc(
+        'admin_remove_band_member',
+        params: {
+          'p_pin': pin,
+          'p_artist_id': artistId,
+          'p_member_id': memberId,
+        },
+      );
+    } on PostgrestException catch (error) {
+      throw _adminError(error);
+    }
+  }
+
+  @override
   Future<void> adminSendPasswordReset(String email) async {
     _requireAdmin();
     final address = email.trim();
@@ -558,14 +579,14 @@ class SupabasePortalRepository extends PortalRepository {
     try {
       await _client.auth.resetPasswordForEmail(
         address,
-        redirectTo: '${Uri.base.origin}/min-side',
+        redirectTo: '${AppConfig.environment.publicSiteUrl}/min-side',
       );
     } on AuthException {
       // Fall back to OTP magic link if recovery is not configured.
       try {
         await _client.auth.signInWithOtp(
           email: address,
-          emailRedirectTo: '${Uri.base.origin}/min-side',
+          emailRedirectTo: '${AppConfig.environment.publicSiteUrl}/min-side',
           shouldCreateUser: false,
         );
       } on AuthException {
@@ -666,7 +687,7 @@ class SupabasePortalRepository extends PortalRepository {
     try {
       await _client.auth.signInWithOtp(
         email: email.trim(),
-        emailRedirectTo: '${Uri.base.origin}/min-side',
+        emailRedirectTo: '${AppConfig.environment.publicSiteUrl}/min-side',
       );
     } on AuthException {
       throw PortalException('Kunne ikke sende innloggingslenken.');
@@ -810,18 +831,48 @@ class SupabasePortalRepository extends PortalRepository {
   }
 
   @override
+  Future<List<String>> fetchBandNotifyEmails(String artistId) async {
+    if (artistId.trim().isEmpty) return const [];
+    try {
+      final result = await _client.rpc(
+        'band_leader_emails',
+        params: {'p_artist_id': artistId},
+      );
+      if (result is! List) return const [];
+      final seen = <String>{};
+      final emails = <String>[];
+      for (final row in result) {
+        final email = row?.toString().trim().toLowerCase() ?? '';
+        if (email.isEmpty || !email.contains('@') || !seen.add(email)) {
+          continue;
+        }
+        emails.add(email);
+      }
+      emails.sort();
+      return emails;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  @override
   Future<BandOverview?> fetchMyBand() async {
     if (_client.auth.currentSession == null) return null;
     if (_adminViewAsArtist != null && _adminSignedIn) {
       return _fetchAdminBandOverview(_adminViewAsArtist!.artistId);
     }
-    await _client.rpc('attach_band_leader');
+    try {
+      await _client.rpc('attach_band_leader');
+    } catch (_) {}
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return null;
     String? bandId;
     try {
       final active = await _client.rpc('current_band_id');
-      if (active is String && active.isNotEmpty) bandId = active;
+      if (active != null) {
+        final value = active.toString().trim();
+        if (value.isNotEmpty && value != 'null') bandId = value;
+      }
     } catch (_) {}
     Map<String, dynamic>? mine;
     if (bandId != null) {
@@ -834,17 +885,24 @@ class SupabasePortalRepository extends PortalRepository {
       if (row != null) mine = Map<String, dynamic>.from(row);
     }
     if (mine == null) {
+      // RLS may only expose current_band_id; try without order for older schemas.
       final rows = await _client
           .from('band_members')
           .select()
           .eq('user_id', userId)
-          .order('created_at', ascending: false)
-          .limit(1);
+          .limit(5);
       if (rows is! List || rows.isEmpty) return null;
-      mine = Map<String, dynamic>.from(rows.first as Map);
-      bandId = mine['band_id'] as String?;
+      final sorted = [
+        for (final row in rows) Map<String, dynamic>.from(row as Map),
+      ]..sort((a, b) {
+          final aAt = (a['created_at'] as String?) ?? '';
+          final bAt = (b['created_at'] as String?) ?? '';
+          return bAt.compareTo(aAt);
+        });
+      mine = sorted.first;
+      bandId = mine['band_id']?.toString();
     }
-    if (mine == null || bandId == null) return null;
+    if (mine == null || bandId == null || bandId.isEmpty) return null;
     final bandRow = await _client.from('bands').select().eq('id', bandId).single();
     final memberRows = await _client.from('band_members').select().eq('band_id', bandId).order('navn');
     final me = BandMember.fromJson(mine);
@@ -1013,9 +1071,25 @@ class SupabasePortalRepository extends PortalRepository {
 
   @override
   Future<BandOverview> createBand({required String name, required String contact}) async {
-    await _client.rpc('create_band', params: {'p_navn': name, 'p_kontakt': contact});
+    try {
+      await _client.rpc('create_band', params: {'p_navn': name, 'p_kontakt': contact});
+    } on PostgrestException catch (error) {
+      final message = error.message.trim();
+      throw PortalException(
+        message.isNotEmpty ? message : 'Bandet ble ikke opprettet.',
+      );
+    }
+    // Admin «se som artist» bruker admin_band_overview (kan mangle medlemsrad).
+    if (_adminViewAsArtist != null && _adminSignedIn) {
+      final adminOverview = await _fetchAdminBandOverview(_adminViewAsArtist!.artistId);
+      if (adminOverview != null) return adminOverview;
+    }
     final overview = await fetchMyBand();
-    if (overview == null) throw PortalException('Bandet ble ikke opprettet.');
+    if (overview == null) {
+      throw PortalException(
+        'Bandet mangler medlemskap. Kjør supabase/fix_create_band_member.sql.',
+      );
+    }
     return overview;
   }
 
@@ -1173,7 +1247,38 @@ class SupabasePortalRepository extends PortalRepository {
     }
     final overview = await fetchMyBand();
     if (overview == null) throw PortalException('Du er ikke med i et band.');
-    final row = await _client
+
+    if (_adminViewAsArtist != null && _adminSignedIn) {
+      if (overview.me.userId == null &&
+          overview.me.id == overview.band.id) {
+        throw PortalException(
+          'Inviter en bandleder før profilen kan fylles ut.',
+        );
+      }
+      try {
+        final result = await _client.rpc(
+          'admin_save_band_member_profile',
+          params: {
+            'p_pin': _requireAdmin(),
+            'p_artist_id': _adminViewAsArtist!.artistId,
+            'p_member_id': overview.me.id,
+            'p_navn': name.trim(),
+            'p_rolle': role.trim(),
+            'p_telefon': phone.trim(),
+            'p_mat': food.trim(),
+            'p_tech_personlig': personalTech.trim(),
+          },
+        );
+        if (result is! Map) {
+          throw PortalException('Profilen kunne ikke lagres.');
+        }
+        return BandMember.fromJson(Map<String, dynamic>.from(result));
+      } on PostgrestException catch (error) {
+        throw _adminError(error);
+      }
+    }
+
+    final rows = await _client
         .from('band_members')
         .update({
           'navn': name.trim(),
@@ -1183,9 +1288,12 @@ class SupabasePortalRepository extends PortalRepository {
           'tech_personlig': personalTech.trim(),
         })
         .eq('id', overview.me.id)
-        .select()
-        .single();
-    return BandMember.fromJson(Map<String, dynamic>.from(row));
+        .eq('user_id', _client.auth.currentUser!.id)
+        .select();
+    if (rows is! List || rows.isEmpty) {
+      throw PortalException('Profilen kunne ikke lagres. Logg inn på nytt.');
+    }
+    return BandMember.fromJson(Map<String, dynamic>.from(rows.first as Map));
   }
 
   @override
@@ -1211,10 +1319,21 @@ class SupabasePortalRepository extends PortalRepository {
   @override
   Future<void> removeMember(String memberId) async {
     try {
-      await _client.rpc(
-        'remove_band_member',
-        params: {'p_member_id': memberId},
-      );
+      if (_adminViewAsArtist != null && _adminSignedIn) {
+        await _client.rpc(
+          'admin_remove_band_member',
+          params: {
+            'p_pin': _requireAdmin(),
+            'p_artist_id': _adminViewAsArtist!.artistId,
+            'p_member_id': memberId,
+          },
+        );
+      } else {
+        await _client.rpc(
+          'remove_band_member',
+          params: {'p_member_id': memberId},
+        );
+      }
     } on PostgrestException catch (error) {
       final message = error.message.trim();
       if (message.isNotEmpty) throw PortalException(message);
@@ -1227,14 +1346,27 @@ class SupabasePortalRepository extends PortalRepository {
     final preview = await previewInvite(token);
     if (preview == null) throw PortalException('Invitasjonen finnes ikke.');
     if (preview.used) throw PortalException('Invitasjonen er allerede brukt.');
+    final redirectTo =
+        '${AppConfig.environment.publicSiteUrl}/min-side/invitasjon/$token';
     try {
       await _client.auth.signInWithOtp(
         email: preview.email,
-        emailRedirectTo: '${Uri.base.origin}/min-side/invitasjon/$token',
+        emailRedirectTo: redirectTo,
         shouldCreateUser: true,
       );
-    } on AuthException {
-      throw PortalException('Kunne ikke sende aktiveringslenken.');
+    } on AuthException catch (error) {
+      final message = error.message.trim();
+      if (message.toLowerCase().contains('rate') ||
+          message.toLowerCase().contains('limit')) {
+        throw PortalException(
+          'For mange e-poster på kort tid. Vent litt og prøv «Send e-post på nytt».',
+        );
+      }
+      throw PortalException(
+        message.isNotEmpty
+            ? message
+            : 'Kunne ikke sende aktiveringslenken. Sjekk at e-post er aktivert i Supabase Auth.',
+      );
     }
   }
 

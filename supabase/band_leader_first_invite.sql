@@ -1,5 +1,5 @@
--- Bandleder er en invitert person, ikke et auto-opprettet artist-sete.
--- Første invitasjon blir Bandleder. Trygt å kjøre på nytt.
+-- Historisk: første invitasjon ble Bandleder.
+-- Erstattet av supabase/fix_no_auto_band_leader.sql (ingen auto-bandleder).
 
 create extension if not exists pgcrypto with schema extensions;
 

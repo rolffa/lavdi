@@ -199,8 +199,10 @@ as $$
 declare
   v_band public.bands%rowtype;
   v_me public.band_members%rowtype;
+  v_me_json jsonb;
   v_members jsonb;
   v_invites jsonb;
+  v_found_member boolean := false;
 begin
   if not public.admin_check_pin(p_pin) then
     raise exception 'Feil PIN';
@@ -224,16 +226,34 @@ begin
   order by created_at nulls last
   limit 1;
 
-  if not found then
+  if found then
+    v_found_member := true;
+  else
     select * into v_me
     from public.band_members
     where band_id = v_band.id
     order by created_at nulls last
     limit 1;
+    if found then
+      v_found_member := true;
+    end if;
   end if;
 
-  if not found then
-    return null;
+  if v_found_member then
+    v_me_json := to_jsonb(v_me);
+  else
+    v_me_json := jsonb_build_object(
+      'id', v_band.id,
+      'band_id', v_band.id,
+      'user_id', null,
+      'navn', 'Admin',
+      'rolle', 'Admin',
+      'telefon', '',
+      'mat', '',
+      'tech_personlig', '',
+      'er_leder', true,
+      'created_at', v_band.created_at
+    );
   end if;
 
   select coalesce(jsonb_agg(to_jsonb(m) order by m.navn), '[]'::jsonb)
@@ -248,7 +268,7 @@ begin
 
   return jsonb_build_object(
     'band', to_jsonb(v_band),
-    'me', to_jsonb(v_me),
+    'me', v_me_json,
     'members', v_members,
     'invites', v_invites
   );

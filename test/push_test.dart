@@ -10,8 +10,8 @@ import 'demo_fixtures.dart';
 void main() {
   final clock = DateTime(2026, 10, 12);
 
-  test('mail goes to the band leader only', () {
-    final emails = bandLeaderEmails(const [
+  test('mail goes to all band members with email', () {
+    final emails = bandMemberEmails(const [
       (isLeader: true, role: 'Musiker', email: 'Rolffa@Lavdi.no'),
       (isLeader: false, role: 'Admin', email: 'admin@lavdi.no'),
       (isLeader: false, role: 'Bandleder', email: 'leder@lavdi.no'),
@@ -19,14 +19,19 @@ void main() {
       (isLeader: false, role: 'Musiker', email: ''),
     ]);
 
-    expect(emails, ['rolffa@lavdi.no', 'leder@lavdi.no']);
+    expect(emails, [
+      'rolffa@lavdi.no',
+      'admin@lavdi.no',
+      'leder@lavdi.no',
+      'sigrid@lavdi.no',
+    ]);
     expect(
       bookingPushBody(organizer: '', venue: 'USF Verftet', date: DateTime(2026, 10, 11)),
       'USF Verftet har sendt en forespørsel for 11.10.2026. Klikk for å se detaljer.',
     );
   });
 
-  test('sending a deal to the artist addresses mail to the band leader', () async {
+  test('sending a deal to the artist addresses mail to band members', () async {
     final repository = DemoPortalRepository(clock: () => clock);
     await repository.signInArtist(
       email: DemoCatalog.artistEmail,

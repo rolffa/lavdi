@@ -16,7 +16,7 @@ alter table public.mail_outbox enable row level security;
 revoke all on table public.mail_outbox from anon, authenticated;
 
 comment on table public.mail_outbox is
-  'E-post til bandleder. Ingen mailserver sender radene videre.';
+  'E-post til bandmedlemmer. Ingen mailserver sender radene videre.';
 
 create or replace function public.band_leader_emails(p_artist_id uuid)
 returns setof text
@@ -30,15 +30,13 @@ as $$
   join public.bands b on b.id = m.band_id
   join auth.users u on u.id = m.user_id
   where b.artist_id = p_artist_id
+    and m.user_id is not null
     and u.email is not null
-    and btrim(u.email) <> ''
-    and (
-      m.er_leder
-      or lower(btrim(m.rolle)) = 'bandleder'
-    );
+    and btrim(u.email) <> '';
 $$;
 
 revoke all on function public.band_leader_emails(uuid) from public;
+grant execute on function public.band_leader_emails(uuid) to authenticated;
 
 create or replace function public.enqueue_booking_request_push()
 returns trigger

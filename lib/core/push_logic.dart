@@ -16,16 +16,21 @@ bool receivesBandPush({required bool isLeader, required String role}) {
   return true;
 }
 
-List<String> bandLeaderEmails(Iterable<({bool isLeader, String role, String email})> members) {
+/// E-postadresser for varsler: alle bandmedlemmer med aktiv konto.
+List<String> bandMemberEmails(Iterable<({bool isLeader, String role, String email})> members) {
   final seen = <String>{};
   final emails = <String>[];
   for (final member in members) {
-    if (!isBandLeader(isLeader: member.isLeader, role: member.role)) continue;
     final email = member.email.trim().toLowerCase();
     if (email.isEmpty || !seen.add(email)) continue;
     emails.add(email);
   }
   return emails;
+}
+
+/// @Deprecated Prefer [bandMemberEmails]. Beholdt for eldre kallsteder.
+List<String> bandLeaderEmails(Iterable<({bool isLeader, String role, String email})> members) {
+  return bandMemberEmails(members);
 }
 
 List<String> pushRecipientUserIds(Iterable<BandMember> members) {

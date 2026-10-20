@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/artist_slug.dart';
+import '../../core/config.dart';
 import '../../core/deal_logic.dart';
 import '../../core/errors.dart';
 import '../../core/format.dart';
@@ -371,7 +372,7 @@ class _DealCardState extends State<_DealCard> {
     }
     if (deal.confirmed) {
       final slug = artistSlug(deal.artistName);
-      final origin = Uri.base.origin;
+      final origin = AppConfig.environment.publicSiteUrl;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

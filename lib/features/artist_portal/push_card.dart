@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme.dart';
 
 class LeaderMailCard extends StatelessWidget {
-  const LeaderMailCard({super.key, required this.email});
-
-  final String email;
+  const LeaderMailCard({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -29,13 +27,11 @@ class LeaderMailCard extends StatelessWidget {
                   Text('Varsler', style: heading),
                   const SizedBox(height: 6),
                   Text(
-                    'Tilbud og påminnelse om settliste sendes til bandets e-post.',
+                    'Alle varsler sendes til alle bandmedlemmer.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: AppColors.muted,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(email, style: heading),
                 ],
               ),
             );

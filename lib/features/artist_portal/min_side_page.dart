@@ -411,16 +411,17 @@ class _Home extends StatelessWidget {
               color: AppColors.onImage,
             ),
           ),
-          Text(
-            session.email,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppColors.onImageMuted,
+          if (!session.asAdmin)
+            Text(
+              session.email,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.onImageMuted,
+              ),
             ),
-          ),
           if (member != null &&
               showPushCard(isLeader: member!.isLeader, role: member!.role)) ...[
             const SizedBox(height: 16),
-            LeaderMailCard(email: session.email),
+            const LeaderMailCard(),
           ],
           if (busyNotices.isNotEmpty) ...[
             const SizedBox(height: 16),

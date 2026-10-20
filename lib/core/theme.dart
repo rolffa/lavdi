@@ -114,6 +114,10 @@ class PortalTextFormField extends FormField<String> {
              keyboardType: keyboardType,
              textCapitalization: textCapitalization,
              obscureText: obscureText,
+             // Avoid browser password-managers forcing generated passwords
+             // (Edge/Chrome "new-password" overlay) on mobile.
+             enableSuggestions: !obscureText,
+             autocorrect: !obscureText,
              minLines: minLines,
              maxLines: obscureText ? 1 : maxLines,
              autofillHints: autofillHints,

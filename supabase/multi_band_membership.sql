@@ -121,7 +121,7 @@ declare
   v_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
   v_member uuid;
   v_leader boolean;
-  v_has_member boolean;
+  v_role text;
 begin
   if auth.uid() is null then
     raise exception 'Åpne lenken i e-posten for å aktivere kontoen.';
@@ -146,21 +146,14 @@ begin
     return v_member;
   end if;
 
-  select exists (
-    select 1 from public.band_members where band_id = v_invite.band_id
-  ) into v_has_member;
+  delete from public.band_members
+  where band_id = v_invite.band_id and user_id is null;
 
-  v_leader :=
-    (not v_has_member)
-    or lower(btrim(v_invite.rolle)) in ('bandleder', 'leder');
+  v_role := coalesce(nullif(trim(v_invite.rolle), ''), 'Medlem');
+  v_leader := lower(btrim(v_role)) in ('bandleder', 'leder');
 
   insert into public.band_members (band_id, user_id, rolle, er_leder)
-  values (
-    v_invite.band_id,
-    auth.uid(),
-    case when not v_has_member then 'Bandleder' else v_invite.rolle end,
-    v_leader
-  )
+  values (v_invite.band_id, auth.uid(), v_role, v_leader)
   on conflict (band_id, user_id) do update
     set rolle = coalesce(nullif(public.band_members.rolle, ''), excluded.rolle),
         er_leder = public.band_members.er_leder or excluded.er_leder
@@ -176,6 +169,8 @@ revoke all on function public.accept_band_invite(text) from public;
 grant execute on function public.accept_band_invite(text) to authenticated;
 
 -- 4) create_band: ikke blokker fordi bruker allerede er med i et annet band.
+-- Skaperen blir alltid bandmedlem (ellers feiler artistportal-oversikten).
+-- Se også supabase/fix_create_band_member.sql for reparasjon av eksisterende rader.
 create or replace function public.create_band(p_navn text, p_kontakt text)
 returns uuid
 language plpgsql
@@ -186,6 +181,8 @@ declare
   v_artist uuid;
   v_band uuid;
   v_name text := nullif(trim(p_navn), '');
+  v_member_name text;
+  v_admin_view boolean := false;
 begin
   if auth.uid() is null then
     raise exception 'Logg inn på nytt.';
@@ -199,18 +196,51 @@ begin
     raise exception 'Ingen artist er koblet til kontoen.';
   end if;
 
+  v_admin_view := exists (
+    select 1 from private.admin_artist_view where auth_user_id = auth.uid()
+  );
+
   select id into v_band
   from public.bands
   where artist_id = v_artist
   limit 1;
-  if v_band is not null then
+
+  if v_admin_view then
+    if v_band is null then
+      insert into public.bands (artist_id, navn, kontaktinfo, created_by)
+      values (v_artist, v_name, coalesce(trim(p_kontakt), ''), auth.uid())
+      returning id into v_band;
+    end if;
     return v_band;
   end if;
 
-  insert into public.bands (artist_id, navn, kontaktinfo, created_by)
-  values (v_artist, v_name, coalesce(trim(p_kontakt), ''), auth.uid())
-  returning id into v_band;
+  select coalesce(
+    nullif(trim(u.raw_user_meta_data ->> 'full_name'), ''),
+    nullif(trim(u.raw_user_meta_data ->> 'name'), ''),
+    nullif(trim(split_part(coalesce(u.email, ''), '@', 1)), ''),
+    v_name
+  )
+  into v_member_name
+  from auth.users u
+  where u.id = auth.uid();
 
+  if v_band is null then
+    insert into public.bands (artist_id, navn, kontaktinfo, created_by)
+    values (v_artist, v_name, coalesce(trim(p_kontakt), ''), auth.uid())
+    returning id into v_band;
+  end if;
+
+  insert into public.band_members (band_id, user_id, navn, rolle, er_leder)
+  values (v_band, auth.uid(), coalesce(v_member_name, v_name), 'Bandleder', true)
+  on conflict (band_id, user_id) do update
+    set navn = coalesce(nullif(public.band_members.navn, ''), excluded.navn),
+        er_leder = public.band_members.er_leder or excluded.er_leder,
+        rolle = case
+          when public.band_members.er_leder or excluded.er_leder then 'Bandleder'
+          else coalesce(nullif(public.band_members.rolle, ''), excluded.rolle)
+        end;
+
+  perform public.set_active_band(v_band);
   return v_band;
 end;
 $$;

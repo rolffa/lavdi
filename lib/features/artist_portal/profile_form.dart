@@ -143,7 +143,7 @@ class _MemberProfileFormState extends State<MemberProfileForm> {
             Text('Lag innloggingspassord', style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),
             Text(
-              'Brukes neste gang du logger inn på Min side med e-post.',
+              'Velg ditt eget passord (minst 6 tegn). Brukes neste gang du logger inn på Min side med e-post.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: AppColors.onImageMuted,
               ),
@@ -153,7 +153,8 @@ class _MemberProfileFormState extends State<MemberProfileForm> {
               controller: _password,
               label: 'Passord',
               obscureText: true,
-              autofillHints: const [AutofillHints.newPassword],
+              // Empty hints: avoid Edge/Chrome forcing a generated password.
+              autofillHints: const <String>[],
               validator: (value) {
                 if (value == null || value.trim().length < 6) {
                   return 'Passordet må være minst 6 tegn';
@@ -166,7 +167,7 @@ class _MemberProfileFormState extends State<MemberProfileForm> {
               controller: _confirm,
               label: 'Bekreft passord',
               obscureText: true,
-              autofillHints: const [AutofillHints.newPassword],
+              autofillHints: const <String>[],
               validator: (value) {
                 if (value != _password.text) {
                   return 'Passordene er ikke like';

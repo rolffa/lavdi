@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/config.dart';
 import '../../core/errors.dart';
 import '../../core/portal_scope.dart';
 import '../../core/theme.dart';
@@ -21,6 +23,7 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
   List<Artist> _artists = const [];
   final Set<String> _saving = {};
   String? _openingId;
+  String? _status;
 
   @override
   void initState() {
@@ -91,6 +94,7 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
     setState(() {
       _openingId = artist.id;
       _error = null;
+      _status = null;
     });
     try {
       await PortalScope.of(context).repository.openArtistPortalAsAdmin(artist.id);
@@ -101,6 +105,51 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
       setState(() => _error = error);
     } finally {
       if (mounted) setState(() => _openingId = null);
+    }
+  }
+
+  Future<void> _inviteMember(Artist artist) async {
+    final result = await showDialog<_InviteDraft>(
+      context: context,
+      builder: (context) => _InviteMemberDialog(artistName: artist.name),
+    );
+    if (result == null || !mounted) return;
+
+    setState(() {
+      _error = null;
+      _status = null;
+    });
+    try {
+      final repository = PortalScope.of(context).repository;
+      final invite = await repository.adminInviteBandMember(
+        artistId: artist.id,
+        email: result.email,
+        role: 'Bandleder',
+        asLeader: true,
+      );
+      final origin = AppConfig.environment.publicSiteUrl;
+      final link = '$origin/min-side/invitasjon/${invite.token}';
+      await Clipboard.setData(ClipboardData(text: link));
+      try {
+        await repository.sendInviteEmail(invite.token);
+      } catch (emailError) {
+        if (!mounted) return;
+        setState(() {
+          _status =
+              'Invitasjon opprettet for ${artist.name}, men e-post feilet: '
+              '${readableError(emailError)}. Reservelenke er kopiert.';
+        });
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _status =
+            'Invitasjon sendt til ${invite.email} for ${artist.name}. '
+            'Lenken er også kopiert.';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error);
     }
   }
 
@@ -124,7 +173,8 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Publiser eller skjul artistsider på forsiden, og åpne artistportalen direkte uten å logge inn på nytt.',
+                  'Publiser eller skjul artistsider, inviter bandleder, '
+                  'og åpne artistportalen direkte uten å logge inn på nytt.',
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: AppColors.onImage,
                   ),
@@ -149,6 +199,15 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
                     ),
                     const SizedBox(height: 12),
                   ],
+                  if (_status != null) ...[
+                    Text(
+                      _status!,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppColors.onImage,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   DecoratedBox(
                     decoration: const BoxDecoration(
                       color: AppColors.surface,
@@ -168,6 +227,7 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
                               opening: _openingId == _artists[i].id,
                               onChanged: (value) =>
                                   _toggle(_artists[i], value),
+                              onInvite: () => _inviteMember(_artists[i]),
                               onOpenPortal: () => _openPortal(_artists[i]),
                             ),
                           ],
@@ -185,12 +245,89 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
   }
 }
 
+class _InviteDraft {
+  const _InviteDraft({required this.email, required this.role});
+  final String email;
+  final String role;
+}
+
+class _InviteMemberDialog extends StatefulWidget {
+  const _InviteMemberDialog({required this.artistName});
+
+  final String artistName;
+
+  @override
+  State<_InviteMemberDialog> createState() => _InviteMemberDialogState();
+}
+
+class _InviteMemberDialogState extends State<_InviteMemberDialog> {
+  final _email = TextEditingController();
+
+  @override
+  void dispose() {
+    _email.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final email = _email.text.trim();
+    if (email.isEmpty || !email.contains('@')) return;
+    Navigator.of(context).pop(
+      _InviteDraft(email: email, role: 'Bandleder'),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Inviter bandleder til ${widget.artistName}'),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Fra adminportalen inviteres bandleder. '
+              'Øvrige bandmedlemmer inviteres fra artistportalen.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.muted,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              autofocus: true,
+              style: portalFieldStyle,
+              cursorColor: AppColors.ink,
+              decoration: fieldDecoration(label: 'E-post til bandleder'),
+              onSubmitted: (_) => _submit(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Avbryt'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: const Text('Send invitasjon'),
+        ),
+      ],
+    );
+  }
+}
+
 class _ArtistAdminRow extends StatelessWidget {
   const _ArtistAdminRow({
     required this.artist,
     required this.busy,
     required this.opening,
     required this.onChanged,
+    required this.onInvite,
     required this.onOpenPortal,
   });
 
@@ -198,6 +335,7 @@ class _ArtistAdminRow extends StatelessWidget {
   final bool busy;
   final bool opening;
   final ValueChanged<bool> onChanged;
+  final VoidCallback onInvite;
   final VoidCallback onOpenPortal;
 
   @override
@@ -207,7 +345,7 @@ class _ArtistAdminRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final stacked = constraints.maxWidth < 560;
+          final stacked = constraints.maxWidth < 640;
           final publish = Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -232,6 +370,10 @@ class _ArtistAdminRow extends StatelessWidget {
                 ),
             ],
           );
+          final inviteButton = TextButton(
+            onPressed: onInvite,
+            child: const Text('Inviter bandleder'),
+          );
           final openButton = TextButton(
             onPressed: opening ? null : onOpenPortal,
             child: Text(
@@ -254,6 +396,7 @@ class _ArtistAdminRow extends StatelessWidget {
                 ],
                 const SizedBox(height: 8),
                 publish,
+                inviteButton,
                 openButton,
               ],
             );
@@ -278,7 +421,8 @@ class _ArtistAdminRow extends StatelessWidget {
                 ),
               ),
               publish,
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
+              inviteButton,
               openButton,
             ],
           );

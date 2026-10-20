@@ -4,8 +4,6 @@ import 'package:flutter/services.dart';
 import '../../core/errors.dart';
 import '../../core/portal_scope.dart';
 import '../../core/theme.dart';
-import '../../models/artist.dart';
-import '../../models/band.dart';
 import '../account/account_widgets.dart';
 import '../shell/portal_scaffold.dart';
 import 'admin_login.dart';
@@ -21,15 +19,8 @@ class _AdminAccountPageState extends State<AdminAccountPage> {
   var _loading = false;
   Object? _error;
   String? _avatarUrl;
-  List<Artist> _artists = const [];
-  String? _artistId;
-  List<BandMember> _accounts = const [];
-  final _inviteEmail = TextEditingController();
-  final _inviteRole = TextEditingController(text: 'Musiker');
   final _resetEmail = TextEditingController();
-  var _asLeader = false;
   var _avatarBusy = false;
-  var _inviteBusy = false;
   var _resetBusy = false;
   String? _status;
 
@@ -44,8 +35,6 @@ class _AdminAccountPageState extends State<AdminAccountPage> {
 
   @override
   void dispose() {
-    _inviteEmail.dispose();
-    _inviteRole.dispose();
     _resetEmail.dispose();
     super.dispose();
   }
@@ -57,18 +46,9 @@ class _AdminAccountPageState extends State<AdminAccountPage> {
     });
     try {
       final repository = PortalScope.of(context).repository;
-      final artists = await repository.fetchAdminArtists();
-      artists.sort((a, b) => a.name.compareTo(b.name));
       final avatar = await repository.fetchAdminAvatarUrl();
-      final artistId = _artistId ?? (artists.isEmpty ? null : artists.first.id);
-      final accounts = artistId == null
-          ? const <BandMember>[]
-          : await repository.fetchAdminBandAccounts(artistId);
       if (!mounted) return;
       setState(() {
-        _artists = artists;
-        _artistId = artistId;
-        _accounts = accounts;
         _avatarUrl = avatar;
         _loading = false;
       });
@@ -78,23 +58,6 @@ class _AdminAccountPageState extends State<AdminAccountPage> {
         _loading = false;
         _error = error;
       });
-    }
-  }
-
-  Future<void> _selectArtist(String? artistId) async {
-    if (artistId == null) return;
-    setState(() {
-      _artistId = artistId;
-      _status = null;
-    });
-    try {
-      final accounts =
-          await PortalScope.of(context).repository.fetchAdminBandAccounts(artistId);
-      if (!mounted) return;
-      setState(() => _accounts = accounts);
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _status = readableError(error));
     }
   }
 
@@ -121,44 +84,6 @@ class _AdminAccountPageState extends State<AdminAccountPage> {
       if (!mounted) return;
       setState(() {
         _avatarBusy = false;
-        _status = readableError(error);
-      });
-    }
-  }
-
-  Future<void> _invite() async {
-    final artistId = _artistId;
-    if (artistId == null) return;
-    setState(() {
-      _inviteBusy = true;
-      _status = null;
-    });
-    try {
-      final repository = PortalScope.of(context).repository;
-      final invite = await repository.adminInviteBandMember(
-        artistId: artistId,
-        email: _inviteEmail.text,
-        role: _inviteRole.text,
-        asLeader: _asLeader,
-      );
-      await repository.sendInviteEmail(invite.token);
-      final origin = Uri.base.origin;
-      await Clipboard.setData(
-        ClipboardData(text: '$origin/min-side/invitasjon/${invite.token}'),
-      );
-      _inviteEmail.clear();
-      final accounts = await repository.fetchAdminBandAccounts(artistId);
-      if (!mounted) return;
-      setState(() {
-        _accounts = accounts;
-        _inviteBusy = false;
-        _status =
-            'Invitasjon sendt til ${invite.email}. Lenken er også kopiert.';
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _inviteBusy = false;
         _status = readableError(error);
       });
     }
@@ -207,7 +132,8 @@ class _AdminAccountPageState extends State<AdminAccountPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Innstillinger for adminkonto og artistkontoer.',
+                  'Innstillinger for adminkonto. Invitasjoner til bandmedlemmer '
+                  'finner du under Artister.',
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: AppColors.onImage,
                   ),
@@ -271,93 +197,11 @@ class _AdminAccountPageState extends State<AdminAccountPage> {
                   AccountSection(
                     title: 'Artistkonto',
                     subtitle:
-                        'Invitér bandleder og bandmedlemmer, eller send engangskode ved glemt passord.',
+                        'Send engangskode ved glemt passord. '
+                        'Invitasjoner sendes fra Artister.',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        DropdownButtonFormField<String>(
-                          initialValue: _artistId,
-                          style: portalFieldStyle,
-                          decoration: fieldDecoration(label: 'Artist'),
-                          items: [
-                            for (final artist in _artists)
-                              DropdownMenuItem(
-                                value: artist.id,
-                                child: Text(artist.name),
-                              ),
-                          ],
-                          onChanged: _selectArtist,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Kontoer',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: AppColors.ink,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        if (_accounts.isEmpty)
-                          Text(
-                            'Ingen bandkontoer ennå.',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: AppColors.ink,
-                            ),
-                          )
-                        else
-                          for (final member in _accounts) ...[
-                            Text(
-                              '${member.name.isEmpty ? 'Uten navn' : member.name}'
-                              ' · ${member.role}'
-                              '${member.isLeader ? ' · Bandleder' : ''}'
-                              '${member.email.isEmpty ? '' : ' · ${member.email}'}',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: AppColors.ink,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                          ],
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _inviteEmail,
-                          keyboardType: TextInputType.emailAddress,
-                          style: portalFieldStyle,
-                          cursorColor: AppColors.ink,
-                          decoration: fieldDecoration(
-                            label: 'E-post til invitasjon',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _inviteRole,
-                          style: portalFieldStyle,
-                          cursorColor: AppColors.ink,
-                          decoration: fieldDecoration(label: 'Rolle'),
-                        ),
-                        Row(
-                          children: [
-                            Checkbox(
-                              value: _asLeader,
-                              onChanged: (value) =>
-                                  setState(() => _asLeader = value ?? false),
-                            ),
-                            const Expanded(child: Text('Invitér som bandleder')),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        FilledButton(
-                          onPressed: _inviteBusy ? null : _invite,
-                          child: Text(
-                            _inviteBusy ? 'Sender…' : 'Send invitasjon',
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Glemt passord',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: AppColors.ink,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
                         TextField(
                           controller: _resetEmail,
                           keyboardType: TextInputType.emailAddress,

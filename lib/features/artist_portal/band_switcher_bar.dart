@@ -89,7 +89,6 @@ class _BandSwitcherBarState extends State<BandSwitcherBar> {
   Widget build(BuildContext context) {
     if (_loading || _bands.length < 2) return const SizedBox.shrink();
     final theme = Theme.of(context);
-    final active = _bands.where((b) => b.isActive).firstOrNull ?? _bands.first;
 
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -97,40 +96,35 @@ class _BandSwitcherBarState extends State<BandSwitcherBar> {
         border: Border(bottom: BorderSide(color: AppColors.line)),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 960),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: Row(
               children: [
                 Text(
-                  'Aktivt band',
-                  style: theme.textTheme.labelMedium?.copyWith(
+                  'Band',
+                  style: theme.textTheme.labelSmall?.copyWith(
                     color: AppColors.muted,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Du jobber nå i ${active.bandName}'
-                  '${active.role.isEmpty ? '' : ' · ${active.role}'}. '
-                  'Bytt under for å redigere profil, rider og kalender for et annet band.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.ink,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < _bands.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 6),
+                          _BandChip(
+                            band: _bands[i],
+                            busy: _switching,
+                            onTap: () => _select(_bands[i]),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final band in _bands)
-                      _BandChip(
-                        band: band,
-                        busy: _switching,
-                        onTap: () => _select(band),
-                      ),
-                  ],
                 ),
               ],
             ),
@@ -156,37 +150,26 @@ class _BandChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final stamp = bandStampColor(band.bandId);
     final selected = band.isActive;
+    final label = band.role.isEmpty
+        ? band.bandName
+        : '${band.bandName} · ${band.role}';
     return Material(
       color: selected ? stamp : AppColors.paper,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(4),
-        side: BorderSide(color: selected ? stamp : AppColors.line, width: 1.5),
+        side: BorderSide(color: selected ? stamp : AppColors.line),
       ),
       child: InkWell(
         onTap: busy || selected ? null : onTap,
         borderRadius: BorderRadius.circular(4),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                band.bandName,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: selected ? Colors.white : AppColors.ink,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              if (band.role.isNotEmpty)
-                Text(
-                  band.role,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: selected
-                        ? Colors.white.withValues(alpha: 0.9)
-                        : AppColors.muted,
-                  ),
-                ),
-            ],
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: selected ? Colors.white : AppColors.ink,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
           ),
         ),
       ),

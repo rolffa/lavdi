@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/config.dart';
 import '../../core/errors.dart';
 import '../../core/portal_scope.dart';
 import '../../core/theme.dart';
@@ -22,7 +23,7 @@ class _BandPageState extends State<BandPage> {
   final _tech = TextEditingController();
   final _hospitality = TextEditingController();
   final _inviteEmail = TextEditingController();
-  final _inviteRole = TextEditingController();
+  final _inviteRole = TextEditingController(text: 'Musiker');
   BandOverview? _overview;
   Object? _error;
   String? _message;
@@ -61,8 +62,8 @@ class _BandPageState extends State<BandPage> {
       _contact.text = overview.band.contact;
       _tech.text = overview.band.sharedTech;
       _hospitality.text = overview.band.sharedHospitality;
-      if (overview.members.isEmpty && _inviteRole.text.trim().isEmpty) {
-        _inviteRole.text = 'Bandleder';
+      if (_inviteRole.text.trim().isEmpty) {
+        _inviteRole.text = 'Musiker';
       }
       setState(() {
         _overview = overview;
@@ -97,14 +98,19 @@ class _BandPageState extends State<BandPage> {
 
   Future<void> _invite() async {
     await _run(() async {
-      final role = _inviteRole.text.trim().isEmpty &&
-              (_overview?.members.isEmpty ?? true)
-          ? 'Bandleder'
-          : _inviteRole.text;
+      final role = _inviteRole.text.trim().isEmpty
+          ? 'Musiker'
+          : _inviteRole.text.trim();
+      final lowered = role.toLowerCase();
+      if (lowered == 'bandleder' || lowered == 'leder') {
+        throw PortalException(
+          'Bandleder inviteres kun fra adminportalen.',
+        );
+      }
       final invite = await PortalScope.of(context).repository
           .inviteMember(email: _inviteEmail.text, role: role);
       _inviteEmail.clear();
-      _inviteRole.clear();
+      _inviteRole.text = 'Musiker';
       _flash(
         'Invitasjon sendt til ${invite.email} som ${invite.role}.',
       );
@@ -127,25 +133,19 @@ class _BandPageState extends State<BandPage> {
     });
   }
 
-  bool _isSoleLeader(BandMember member) {
-    if (!member.isLeader) return false;
-    final leaders =
-        _overview?.members.where((item) => item.isLeader).length ?? 0;
-    return leaders <= 1;
-  }
-
   Future<void> _removeMember(BandMember member) async {
-    if (_isSoleLeader(member)) {
-      _flash('Kan ikke fjerne den eneste bandlederen.');
-      return;
-    }
     final label = member.name.isEmpty ? 'dette medlemmet' : member.name;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Fjern medlem'),
-          content: Text('Vil du fjerne $label fra bandet?'),
+          content: Text(
+            member.isLeader
+                ? 'Vil du fjerne $label (bandleder) fra bandet? '
+                    'Bandet kan stå uten medlemmer til noen inviteres på nytt.'
+                : 'Vil du fjerne $label fra bandet?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -239,7 +239,7 @@ class _BandPageState extends State<BandPage> {
   Widget _editor() {
     final overview = _overview!;
     final theme = Theme.of(context);
-    final origin = Uri.base.origin;
+    final origin = AppConfig.environment.publicSiteUrl;
     final canEdit = !_saving;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -369,9 +369,8 @@ class _BandPageState extends State<BandPage> {
           tone: _BandTone.invite,
           children: [
             Text(
-              overview.members.isEmpty
-                  ? 'Ingen medlemmer ennå. Den første som inviteres blir bandleder og får e-post med aktiveringslenke.'
-                  : 'Alle i bandet kan invitere. Personen får en e-post med aktiveringslenke. Velg Bandleder for å invitere en ekstra leder.',
+              'Inviter bandmedlemmer (musiker, lydtekniker, turnéleder). '
+              'Bandleder inviteres fra adminportalen. Personen får e-post med aktiveringslenke.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: AppColors.muted,
               ),
@@ -389,16 +388,13 @@ class _BandPageState extends State<BandPage> {
               cursorColor: AppColors.ink,
               decoration: fieldDecoration(
                 label: 'Rolle',
-                helperText: overview.members.isEmpty
-                    ? 'Første invitasjon settes til Bandleder'
-                    : 'Bandleder, musiker, lydtekniker eller turnéleder',
+                helperText: 'Musiker, lydtekniker eller turnéleder',
               ),
             ),
             Wrap(
               spacing: 8,
               children: [
                 for (final role in const [
-                  'Bandleder',
                   'Musiker',
                   'Lydtekniker',
                   'Turnéleder',
@@ -416,11 +412,7 @@ class _BandPageState extends State<BandPage> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _saving ? null : _invite,
-                child: Text(
-                  overview.members.isEmpty
-                      ? 'Inviter bandleder'
-                      : 'Send invitasjon',
-                ),
+                child: const Text('Send invitasjon'),
               ),
             ),
             for (final invite in overview.invites)

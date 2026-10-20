@@ -48,7 +48,8 @@ jobs:
           fi
           flutter build web --release --base-href "/" \
             --dart-define=SUPABASE_URL="$URL" \
-            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+            --dart-define=PUBLIC_SITE_URL="https://www.lavdi.no"
           # GitHub Pages has no SPA rewrite; serve the app for deep links (/admin, /min-side).
           cp build/web/index.html build/web/404.html
           if ! grep -q '\.supabase\.co' build/web/main.dart.js; then

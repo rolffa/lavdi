@@ -118,6 +118,11 @@ abstract class PortalRepository extends ChangeNotifier {
     bool asLeader = false,
   });
 
+  Future<void> adminRemoveBandMember({
+    required String artistId,
+    required String memberId,
+  });
+
   /// Sends a one-time login / reset link to the given email.
   Future<void> adminSendPasswordReset(String email);
 
@@ -156,6 +161,9 @@ abstract class PortalRepository extends ChangeNotifier {
   });
 
   Future<BandOverview?> fetchMyBand();
+
+  /// E-postadresser som mottar tilbud og settlistepåminnelser for artisten.
+  Future<List<String>> fetchBandNotifyEmails(String artistId);
 
   /// All bands the signed-in musician belongs to (for switcher / combined calendar).
   Future<List<MusicianBand>> fetchMyBands();

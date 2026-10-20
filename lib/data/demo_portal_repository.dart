@@ -444,6 +444,15 @@ class DemoPortalRepository extends PortalRepository {
   }
 
   @override
+  Future<void> adminRemoveBandMember({
+    required String artistId,
+    required String memberId,
+  }) async {
+    _requireAdmin();
+    _members.removeWhere((item) => item.id == memberId);
+  }
+
+  @override
   Future<void> adminSendPasswordReset(String email) async {
     _requireAdmin();
     final address = email.trim().toLowerCase();
@@ -646,6 +655,16 @@ class DemoPortalRepository extends PortalRepository {
   void _replaceMember(BandMember member) {
     final index = _members.indexWhere((item) => item.id == member.id);
     if (index >= 0) _members[index] = member;
+  }
+
+  @override
+  Future<List<String>> fetchBandNotifyEmails(String artistId) async {
+    final band = _band;
+    if (band == null || band.artistId != artistId) return const [];
+    return bandMemberEmails([
+      for (final member in _members.where((m) => m.bandId == band.id))
+        (isLeader: member.isLeader, role: member.role, email: member.email),
+    ]);
   }
 
   @override
@@ -907,13 +926,6 @@ class DemoPortalRepository extends PortalRepository {
       if (item.id == memberId) member = item;
     }
     if (member == null) throw PortalException('Fant ikke medlemmet.');
-    if (member.isLeader) {
-      final leaders =
-          overview.members.where((item) => item.isLeader).length;
-      if (leaders <= 1) {
-        throw PortalException('Kan ikke fjerne den eneste bandlederen.');
-      }
-    }
     _members.removeWhere((item) => item.id == memberId);
   }
 
@@ -1278,7 +1290,7 @@ class DemoPortalRepository extends PortalRepository {
   }) {
     final band = _band;
     if (band == null || band.artistId != artistId) return;
-    final emails = bandLeaderEmails([
+    final emails = bandMemberEmails([
       for (final member in _members.where((member) => member.bandId == band.id))
         (isLeader: member.isLeader, role: member.role, email: member.email),
     ]);
