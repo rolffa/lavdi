@@ -155,7 +155,7 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
         setState(() {
           _status =
               'Invitasjon opprettet for ${artist.name}, men e-post feilet: '
-              '${readableError(emailError)}. Reservelenke er kopiert.';
+              '${readableError(emailError)} Reservelenke er kopiert.';
         });
         return;
       }

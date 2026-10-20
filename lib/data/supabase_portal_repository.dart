@@ -865,82 +865,45 @@ class SupabasePortalRepository extends PortalRepository {
     try {
       await _client.rpc('attach_band_leader');
     } catch (_) {}
-    final userId = _client.auth.currentUser?.id;
-    if (userId == null) return null;
-    String? bandId;
+
+    // Prefer security-definer overview (fungerer også for tomt band).
     try {
-      final active = await _client.rpc('current_band_id');
-      if (active != null) {
-        final value = active.toString().trim();
-        if (value.isNotEmpty && value != 'null') bandId = value;
-      }
+      final result = await _client.rpc('my_band_overview');
+      final parsed = _bandOverviewFromRpc(result);
+      if (parsed != null) return parsed;
     } catch (_) {}
-    Map<String, dynamic>? mine;
-    if (bandId != null) {
-      final row = await _client
-          .from('band_members')
-          .select()
-          .eq('user_id', userId)
-          .eq('band_id', bandId)
-          .maybeSingle();
-      if (row != null) mine = Map<String, dynamic>.from(row);
-    }
-    if (mine == null) {
-      // RLS may only expose current_band_id; try without order for older schemas.
-      final rows = await _client
-          .from('band_members')
-          .select()
-          .eq('user_id', userId)
-          .limit(5);
-      if (rows is List && rows.isNotEmpty) {
-        final sorted = [
-          for (final row in rows) Map<String, dynamic>.from(row as Map),
-        ]..sort((a, b) {
-            final aAt = (a['created_at'] as String?) ?? '';
-            final bAt = (b['created_at'] as String?) ?? '';
-            return bAt.compareTo(aAt);
-          });
-        mine = sorted.first;
-        bandId = mine['band_id']?.toString();
+
+    return _fetchOwnedBandWithoutMembership();
+  }
+
+  BandOverview? _bandOverviewFromRpc(dynamic result) {
+    if (result == null) return null;
+    if (result is! Map) return null;
+    final json = Map<String, dynamic>.from(result);
+    final bandJson = json['band'];
+    final meJson = json['me'];
+    if (bandJson is! Map || meJson is! Map) return null;
+    final members = <BandMember>[];
+    final memberRows = json['members'];
+    if (memberRows is List) {
+      for (final row in memberRows) {
+        if (row is Map) {
+          members.add(BandMember.fromJson(Map<String, dynamic>.from(row)));
+        }
       }
     }
-    // Artist-eier kan ha band uten egen medlemsrad (etter slettet bandleder).
-    if (bandId == null || bandId.isEmpty) return null;
-    final bandRow =
-        await _client.from('bands').select().eq('id', bandId).single();
-    final memberRows = await _client
-        .from('band_members')
-        .select()
-        .eq('band_id', bandId)
-        .order('navn');
-    final members = [
-      for (final row in memberRows)
-        BandMember.fromJson(Map<String, dynamic>.from(row)),
-    ];
-    final me = mine != null
-        ? BandMember.fromJson(mine)
-        : BandMember(
-            id: bandId,
-            bandId: bandId,
-            name: 'Admin',
-            role: 'Admin',
-            phone: '',
-            food: '',
-            personalTech: '',
-            isLeader: true,
-          );
-    final inviteRows = await _client
-        .from('band_invites')
-        .select()
-        .eq('band_id', bandId)
-        .isFilter('accepted_at', null);
-    final invites = [
-      for (final row in inviteRows)
-        BandInvite.fromJson(Map<String, dynamic>.from(row)),
-    ];
+    final invites = <BandInvite>[];
+    final inviteRows = json['invites'];
+    if (inviteRows is List) {
+      for (final row in inviteRows) {
+        if (row is Map) {
+          invites.add(BandInvite.fromJson(Map<String, dynamic>.from(row)));
+        }
+      }
+    }
     return BandOverview(
-      band: Band.fromJson(Map<String, dynamic>.from(bandRow)),
-      me: me,
+      band: Band.fromJson(Map<String, dynamic>.from(bandJson)),
+      me: BandMember.fromJson(Map<String, dynamic>.from(meJson)),
       members: members,
       invites: invites,
     );
@@ -1108,10 +1071,9 @@ class SupabasePortalRepository extends PortalRepository {
     }
     final overview = await fetchMyBand();
     if (overview != null) return overview;
-    // Tomt band (ingen medlemmer) er gyldig til ny bandleder er invitert.
-    final empty = await _fetchOwnedBandWithoutMembership();
-    if (empty != null) return empty;
-    throw PortalException('Bandet ble ikke opprettet.');
+    throw PortalException(
+      'Fant ikke bandet. Inviter en bandleder fra admin, eller prøv igjen.',
+    );
   }
 
   /// Band for artist-eier / aktivt band uten egen medlemsrad.
@@ -1421,64 +1383,11 @@ class SupabasePortalRepository extends PortalRepository {
     final redirectTo =
         '${AppConfig.environment.publicSiteUrl}/min-side/invitasjon/$token';
 
-    // Primært: norsk e-post med magic link + PDF-manual via Edge Function.
-    try {
-      final response = await _client.functions.invoke(
-        'send-invite-email',
-        body: {'token': token},
-      );
-      final data = response.data;
-      if (response.status >= 200 && response.status < 300) {
-        if (data is Map && data['error'] != null) {
-          final message = data['error'].toString().trim();
-          if (message.isNotEmpty) throw PortalException(message);
-        }
-        return;
-      }
-      final message = data is Map
-          ? (data['error'] as String?)?.trim() ?? ''
-          : '';
-      // 404/503 = funksjon/secret mangler → fallback til Auth OTP.
-      if (response.status == 404 ||
-          response.status == 503 ||
-          message.contains('RESEND_API_KEY')) {
-        await _sendInviteEmailOtp(
-          email: preview.email,
-          redirectTo: redirectTo,
-        );
-        return;
-      }
-      throw PortalException(
-        message.isNotEmpty
-            ? message
-            : 'Kunne ikke sende invitasjons-e-post.',
-      );
-    } on PortalException {
-      rethrow;
-    } on FunctionException catch (error) {
-      final status = error.status;
-      if (status == 404 || status == 503) {
-        await _sendInviteEmailOtp(
-          email: preview.email,
-          redirectTo: redirectTo,
-        );
-        return;
-      }
-      final details = error.details;
-      final message = details is Map
-          ? (details['error'] as String?)?.trim()
-          : null;
-      throw PortalException(
-        (message != null && message.isNotEmpty)
-            ? message
-            : 'Kunne ikke sende invitasjons-e-post.',
-      );
-    } catch (_) {
-      await _sendInviteEmailOtp(
-        email: preview.email,
-        redirectTo: redirectTo,
-      );
-    }
+    // Supabase Auth standardmal (magic link) — ingen Resend/edge-funksjon.
+    await _sendInviteEmailOtp(
+      email: preview.email,
+      redirectTo: redirectTo,
+    );
   }
 
   Future<void> _sendInviteEmailOtp({
