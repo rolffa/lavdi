@@ -2218,6 +2218,10 @@ class SupabasePortalRepository extends PortalRepository {
       'admin_confirm_deal',
       params: {'p_pin': pin, 'p_booking_id': dealId},
     );
+    // Arrangør-mail med reise- og dagskjema-lenker er lagt i kø av trigger.
+    try {
+      await _client.functions.invoke('dispatch-mail');
+    } catch (_) {}
   }
 
   @override
