@@ -237,19 +237,18 @@ class SupabasePortalRepository extends PortalRepository {
 
   @override
   void signOutAdmin() {
-    final email = _client.auth.currentUser?.email?.toLowerCase();
-    final adminEmail = _adminAuthEmail.toLowerCase();
     final pin = _adminSecret;
+    final hadAuth = _client.auth.currentSession != null;
     _adminSecret = null;
     _adminUsername = '';
     _adminAuthEmail = '';
     _adminSignedIn = false;
     _adminViewAsArtist = null;
-    if (pin != null && _client.auth.currentSession != null) {
+    if (pin != null && hadAuth) {
       // ignore: discarded_futures
       _client.rpc('admin_close_artist_view', params: {'p_pin': pin}).catchError((_) {});
     }
-    if (email != null && email.isNotEmpty && email == adminEmail) {
+    if (hadAuth) {
       // ignore: discarded_futures
       _client.auth.signOut();
     }
@@ -258,6 +257,35 @@ class SupabasePortalRepository extends PortalRepository {
 
   @override
   ArtistSession? get adminViewAsArtist => _adminViewAsArtist;
+
+  @override
+  Future<void> preparePublicArtistEntry() async {
+    // «Artist» fra forsiden skal aldri gjenoppta siste admin «se som artist».
+    _adminViewAsArtist = null;
+    try {
+      await _client.rpc('clear_my_admin_artist_view');
+    } catch (_) {
+      // Eldre DB uten RPC — prøv lukk med PIN hvis vi fortsatt har admin-økt.
+      final pin = _adminSecret;
+      if (pin != null && pin.isNotEmpty) {
+        try {
+          await _client.rpc('admin_close_artist_view', params: {'p_pin': pin});
+        } catch (_) {}
+      }
+    }
+    // Uten aktiv admin-UI: dropp Auth hvis økten fortsatt er «se som artist»
+    // (gammel DB / manglende RPC), så forsiden ikke auto-logger inn artisten.
+    if (_client.auth.currentSession != null && !_adminSignedIn) {
+      try {
+        final result = await _client.rpc('artist_me');
+        final asAdmin = result is Map && (result['as_admin'] == true);
+        if (asAdmin) {
+          await _client.auth.signOut();
+        }
+      } catch (_) {}
+    }
+    notifyListeners();
+  }
 
   Future<void> _ensureAdminAuthSession() async {
     if (_client.auth.currentSession != null) return;
@@ -661,7 +689,14 @@ class SupabasePortalRepository extends PortalRepository {
       return _adminViewAsArtist;
     }
     if (_client.auth.currentSession == null) return null;
-    return _loadArtist();
+    final session = await _loadArtist();
+    // Stale admin_artist_view etter refresh/utlogging → ikke auto-innlogging.
+    // asAdmin kommer direkte fra DB (artist_me), ikke fra lokal admin-flagg.
+    if (session != null && session.asAdmin && !_adminSignedIn) {
+      await preparePublicArtistEntry();
+      return null;
+    }
+    return session;
   }
 
   @override
@@ -711,14 +746,18 @@ class SupabasePortalRepository extends PortalRepository {
     final artistId = json['artist_id'] as String?;
     final name = json['navn'] as String?;
     if (artistId == null || name == null) return null;
+    // Behold as_admin fra DB — ellers feiler stale-sjekk i currentArtist()
+    // (tidligere ble flagget nullstilt når !_adminSignedIn).
     final asAdmin = json['as_admin'] as bool? ?? false;
     final session = ArtistSession(
       artistId: artistId,
       artistName: name,
       email: (json['epost'] as String?) ?? _client.auth.currentUser?.email ?? '',
-      asAdmin: asAdmin || _adminViewAsArtist?.artistId == artistId,
+      asAdmin: asAdmin,
     );
-    if (session.asAdmin) _adminViewAsArtist = session;
+    if (asAdmin && _adminSignedIn) {
+      _adminViewAsArtist = session;
+    }
     return session;
   }
 

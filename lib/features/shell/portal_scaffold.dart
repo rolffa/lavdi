@@ -155,15 +155,12 @@ class PortalHeader extends StatelessWidget {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     );
                     Future<void> goHeader(String path) async {
-                      // «Artist» skal være vanlig artistportal, ikke siste
-                      // admin «se som artist»-økt.
+                      // «Artist» = vanlig artistportal, aldri siste admin-visning.
                       if (path == '/min-side') {
                         final repo = PortalScope.of(context).repository;
-                        if (repo.adminViewAsArtist != null) {
-                          try {
-                            await repo.closeArtistPortalAsAdmin();
-                          } catch (_) {}
-                        }
+                        try {
+                          await repo.preparePublicArtistEntry();
+                        } catch (_) {}
                       }
                       if (!context.mounted) return;
                       context.go(path);

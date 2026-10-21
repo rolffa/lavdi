@@ -11,7 +11,7 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(title, {
       body: payload.body || '',
       data: { url },
-      icon: new URL('../icons/Icon-192.png', self.location.href).href,
+      icon: new URL('../logo_thumbnail_TRANS_small.png', self.location.href).href,
     }),
   );
 });

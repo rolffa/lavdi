@@ -290,6 +290,12 @@ class DemoPortalRepository extends PortalRepository {
   ArtistSession? get adminViewAsArtist => _adminViewAsArtist;
 
   @override
+  Future<void> preparePublicArtistEntry() async {
+    _adminViewAsArtist = null;
+    notifyListeners();
+  }
+
+  @override
   Future<ArtistSession> openArtistPortalAsAdmin(String artistId) async {
     _requireAdmin();
     final artist = _artist(artistId);

@@ -42,6 +42,9 @@ abstract class PortalRepository extends ChangeNotifier {
   /// Active «se som artist»-session, or null.
   ArtistSession? get adminViewAsArtist;
 
+  /// Rydd «se som artist» før vanlig Artist-innlogging (f.eks. fra forsiden).
+  Future<void> preparePublicArtistEntry();
+
   /// Opens the given artist's portal for the signed-in admin.
   Future<ArtistSession> openArtistPortalAsAdmin(String artistId);
 
