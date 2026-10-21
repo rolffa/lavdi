@@ -1,6 +1,5 @@
--- E-post til bandleder i stedet for nettleservarsler.
--- Det finnes ingen mailserver. Radene i mail_outbox blir liggende
--- til en avsender er koblet på.
+-- E-postkø for bandleder/admin. Utsending skjer via Edge Function
+-- supabase/functions/dispatch-mail (Resend).
 
 create table if not exists public.mail_outbox (
   id uuid primary key default gen_random_uuid(),

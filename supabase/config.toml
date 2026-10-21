@@ -3,3 +3,7 @@
 [functions.send-invite-email]
 enabled = true
 verify_jwt = false
+
+[functions.dispatch-mail]
+enabled = true
+verify_jwt = false

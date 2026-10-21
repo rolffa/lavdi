@@ -154,6 +154,10 @@ class SupabasePortalRepository extends PortalRepository {
       'spillested': draft.venueCity.trim(),
       'notater': draft.notes.trim(),
     });
+    // Trigger køer admin-mail; prøv å sende med en gang.
+    try {
+      await _client.functions.invoke('dispatch-mail');
+    } catch (_) {}
   }
 
   @override
