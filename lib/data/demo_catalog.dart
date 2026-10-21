@@ -28,7 +28,7 @@ abstract final class DemoCatalog {
       name: 'EiGA',
       tagline: 'Duo',
       bio: eigaBio,
-      imageUrl: 'assets/artist/eiga_profile_1.jpeg',
+      imageUrl: 'assets/artist/eiga_profile_2.jpeg',
       videoUrl:
           'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',
       spotifyUri: 'spotify:artist:75H5OcSeAZklaB7d3TdrMo',

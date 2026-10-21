@@ -116,7 +116,7 @@ values
 EiGA er kjent for å forene tradisjonell joik med moderne EDM- og elektronika-elementer, noe som skaper et unikt og energisk lydbilde som har fått stor oppmerksomhet på festivaler og arrangementer. Duoen har gitt ut utgivelser som låten «Duinna» (gjestet av Elin Oskal) og singelen «Muittašan» (gjestet av MÁIJÁ).
 
 Eiga passer like godt til klubbscener som til store festivaler.$bio$,
-    'assets/artist/eiga_profile_1.jpeg',
+    'assets/artist/eiga_profile_2.jpeg',
     'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',
     'spotify:artist:75H5OcSeAZklaB7d3TdrMo',
     95000
