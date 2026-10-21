@@ -2,6 +2,9 @@
 -- Daglig via pg_cron → enqueue → dispatch-mail (Resend).
 -- Trygt å kjøre på nytt.
 
+create extension if not exists pg_cron with schema pg_catalog;
+create extension if not exists pg_net with schema extensions;
+
 create schema if not exists private;
 
 create table if not exists private.mail_settings (
