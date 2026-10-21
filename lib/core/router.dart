@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/admin/admin_account_page.dart';
@@ -35,7 +36,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/artist/presse',
-      builder: (context, state) => const PressKitPage(),
+      builder: (context, state) => PressKitPage(
+        key: ValueKey('presse-${state.uri.queryParameters['band'] ?? ''}'),
+      ),
     ),
     GoRoute(
       path: '/artister/:slug/presse',
@@ -56,35 +59,51 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/min-side',
-      builder: (context, state) => const MinSidePage(),
+      builder: (context, state) => MinSidePage(
+        key: ValueKey('min-side-${state.uri.queryParameters['band'] ?? ''}'),
+      ),
       routes: [
         GoRoute(
           path: 'repertoar',
-          builder: (context, state) => const RepertoirePage(),
+          builder: (context, state) => RepertoirePage(
+            key: ValueKey('repertoar-${state.uri.queryParameters['band'] ?? ''}'),
+          ),
         ),
         GoRoute(
           path: 'band',
-          builder: (context, state) => const BandPage(),
+          builder: (context, state) => BandPage(
+            key: ValueKey('band-${state.uri.queryParameters['band'] ?? ''}'),
+          ),
         ),
         GoRoute(
           path: 'settliste',
-          builder: (context, state) => const SetlistHubPage(),
+          builder: (context, state) => SetlistHubPage(
+            key: ValueKey('settliste-${state.uri.queryParameters['band'] ?? ''}'),
+          ),
         ),
         GoRoute(
           path: 'ridere',
-          builder: (context, state) => const ArtistRidersPage(),
+          builder: (context, state) => ArtistRidersPage(
+            key: ValueKey('ridere-${state.uri.queryParameters['band'] ?? ''}'),
+          ),
         ),
         GoRoute(
           path: 'kalender',
-          builder: (context, state) => const ArtistCalendarPage(),
+          builder: (context, state) => ArtistCalendarPage(
+            key: ValueKey('kalender-${state.uri.queryParameters['band'] ?? ''}'),
+          ),
         ),
         GoRoute(
           path: 'profil',
-          builder: (context, state) => const ProfilePage(),
+          builder: (context, state) => ProfilePage(
+            key: ValueKey('profil-${state.uri.queryParameters['band'] ?? ''}'),
+          ),
         ),
         GoRoute(
           path: 'konto',
-          builder: (context, state) => const ArtistAccountPage(),
+          builder: (context, state) => ArtistAccountPage(
+            key: ValueKey('konto-${state.uri.queryParameters['band'] ?? ''}'),
+          ),
         ),
         GoRoute(
           path: 'invitasjon/:token',

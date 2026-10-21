@@ -16,7 +16,30 @@ as $$
       where v.auth_user_id = auth.uid()
       limit 1
     ),
-    (select band_id from public.band_members where user_id = auth.uid() limit 1),
+    (
+      select a.band_id
+      from private.user_active_band a
+      join public.band_members m
+        on m.band_id = a.band_id and m.user_id = a.auth_user_id
+      where a.auth_user_id = auth.uid()
+      limit 1
+    ),
+    (
+      select a.band_id
+      from private.user_active_band a
+      join public.bands b on b.id = a.band_id
+      join private.artist_logins l on l.artist_id = b.artist_id
+      where a.auth_user_id = auth.uid()
+        and l.auth_user_id = auth.uid()
+      limit 1
+    ),
+    (
+      select band_id
+      from public.band_members
+      where user_id = auth.uid()
+      order by created_at desc nulls last
+      limit 1
+    ),
     (
       select b.id
       from public.bands b

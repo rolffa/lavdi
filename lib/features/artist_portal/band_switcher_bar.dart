@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/errors.dart';
 import '../../core/portal_scope.dart';
@@ -71,7 +72,20 @@ class _BandSwitcherBarState extends State<BandSwitcherBar> {
       if (!mounted) return;
       final bands = await repository.fetchMyBands();
       if (!mounted) return;
+      final activeId = bands
+          .where((item) => item.isActive)
+          .map((item) => item.bandId)
+          .firstOrNull;
+      if (activeId != band.bandId) {
+        throw PortalException(
+          'Bandbyttet ble ikke lagret. Oppdater siden, eller kontakt support.',
+        );
+      }
       setState(() => _bands = bands);
+      final path = GoRouterState.of(context).uri.path;
+      context.go(
+        Uri(path: path, queryParameters: {'band': band.bandId}).toString(),
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Byttet til ${band.bandName}')),
       );
