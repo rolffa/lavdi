@@ -84,24 +84,20 @@ class PortalFooter extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      padding: EdgeInsets.fromLTRB(20, isHome ? 16 : 8, 20, 16),
       child: isHome
-          ? Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Image.asset(
                   'assets/brand/Logo_Amundsen Studio_S_Square.png',
-                  height: 40,
+                  height: 72,
                   fit: BoxFit.contain,
                   filterQuality: FilterQuality.high,
                   semanticLabel: 'Amundsen Studio',
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  'Amundsen Studio © 2026',
-                  style: copyrightStyle,
-                ),
+                const SizedBox(height: 10),
+                copyright,
               ],
             )
           : copyright,
