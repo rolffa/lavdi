@@ -415,7 +415,10 @@ class _DealCardState extends State<_DealCard> {
             const Text('Artisten er varslet om å bestille reise.'),
           ] else ...[
             const SizedBox(height: 8),
-            const Text('Venter på arrangørens reiseinfo før artisten bestiller.'),
+            const Text(
+              'Venter på arrangørens reiseinfo (flyplass, avstand). '
+              'Først da kan artisten bestille, og crew-reise åpnes for bandet.',
+            ),
           ],
           if (deal.daySheetReady) ...[
             const SizedBox(height: 8),
@@ -433,7 +436,17 @@ class _DealCardState extends State<_DealCard> {
             ),
           ] else if (deal.travelBriefReady) ...[
             const SizedBox(height: 8),
-            const Text('Venter på at alle aktive medlemmer huker av for reise bestilt.'),
+            const Text(
+              'Crew-reise er klar for bandmedlemmene (huk av reise bestilt). '
+              'Flyplass og øvrige detaljer ligger over fra arrangørens reiseskjema.',
+            ),
+          ] else ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Crew-reise settes opp for bandmedlemmene når reiseskjemaet er levert '
+              '(huk av reise bestilt senere). Detaljer om nærmeste flyplass o.l. '
+              'kommer først da.',
+            ),
           ],
         ],
       );

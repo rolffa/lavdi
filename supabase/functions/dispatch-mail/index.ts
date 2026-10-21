@@ -44,14 +44,15 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  // Kølegg dagskjema-påminnelser (idempotent) før utsending.
-  {
-    const { error: enqueueError } = await supabase.rpc(
-      "enqueue_day_sheet_reminders",
-    );
+  // Kølegg påminnelser (idempotent) før utsending.
+  for (const rpc of [
+    "enqueue_day_sheet_reminders",
+    "enqueue_travel_reminders",
+  ]) {
+    const { error: enqueueError } = await supabase.rpc(rpc);
     if (enqueueError) {
       // Eldre DB uten funksjonen: fortsett med vanlig utsending.
-      console.warn("enqueue_day_sheet_reminders:", enqueueError.message);
+      console.warn(`${rpc}:`, enqueueError.message);
     }
   }
 

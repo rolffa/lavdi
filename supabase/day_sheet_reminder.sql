@@ -151,6 +151,13 @@ set search_path = public
 as $$
 begin
   perform public.enqueue_day_sheet_reminders();
+  -- Reise-påminnelse defineres i travel_reminder.sql (no-op hvis den mangler).
+  begin
+    perform public.enqueue_travel_reminders();
+  exception
+    when undefined_function then
+      null;
+  end;
   perform public.dispatch_mail_outbox();
 end;
 $$;

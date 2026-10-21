@@ -233,7 +233,9 @@ class _GigDashboardPageState extends State<GigDashboardPage> {
               ? CrewTravelSection(gig: gig)
               : ArtistCard(
                   child: Text(
-                    'Venter på at arrangøren fyller ut flyplass og avstand. Da får du beskjed om å bestille reise.',
+                    'Crew-reise settes opp her (huk av reise bestilt senere). '
+                    'Detaljer om nærmeste flyplass, avstand og mer info kommer når arrangøren har fylt ut reiseskjemaet. '
+                    'Da får du beskjed om å bestille reise.',
                     style: theme.textTheme.bodyLarge?.copyWith(color: AppColors.ink),
                   ),
                 ),

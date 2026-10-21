@@ -72,15 +72,46 @@ class PortalFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-      child: Text(
-        'Amundsen Studio © 2026',
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: AppColors.onImageMuted,
-        ),
+    final path = GoRouterState.of(context).uri.path;
+    final isHome = path == '/' || path.isEmpty;
+    final copyright = Text(
+      'Amundsen Studio © 2026',
+      textAlign: TextAlign.center,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        color: AppColors.onImageMuted,
       ),
+    );
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, isHome ? 20 : 8, 20, 16),
+      child: isHome
+          ? SizedBox(
+              height: 88,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned(
+                    bottom: 4,
+                    left: 0,
+                    right: 0,
+                    child: copyright,
+                  ),
+                  IgnorePointer(
+                    child: Opacity(
+                      opacity: 0.92,
+                      child: Image.asset(
+                        'assets/brand/Logo_Amundsen Studio_S_Square.png',
+                        height: 72,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                        semanticLabel: 'Amundsen Studio',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : copyright,
     );
   }
 }

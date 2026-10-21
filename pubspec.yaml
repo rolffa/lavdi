@@ -28,6 +28,7 @@ flutter:
   assets:
     - assets/brand/logo2.png
     - assets/brand/Bakgrunn3.jpeg
+    - assets/brand/Logo_Amundsen Studio_S_Square.png
     - assets/artist/
     - assets/artist/movie/
     - assets/contracts/
