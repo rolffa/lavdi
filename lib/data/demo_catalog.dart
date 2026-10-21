@@ -26,7 +26,7 @@ abstract final class DemoCatalog {
     Artist(
       id: fjordId,
       name: 'EiGA',
-      tagline: 'Duo',
+      tagline: 'Elektronisk, EDM, joik',
       bio: eigaBio,
       imageUrl: 'assets/artist/eiga_profile_2.jpeg',
       videoUrl:
@@ -37,7 +37,7 @@ abstract final class DemoCatalog {
     Artist(
       id: harborId,
       name: 'Felgen Orkester',
-      tagline: 'Band',
+      tagline: 'Folk rock',
       bio: 'Felgen Orkester bookes til klubber, kulturhus og festivaler.',
       imageUrl: 'assets/artist/felgen_profile_1.jpeg',
       videoUrl:
@@ -48,7 +48,7 @@ abstract final class DemoCatalog {
     Artist(
       id: linnId,
       name: 'Rolffa',
-      tagline: 'Band',
+      tagline: 'Partyjoik',
       bio: 'Rolffa bookes til klubber, kulturhus og festivaler.',
       imageUrl: 'assets/artist/rolffa_profile_1.jpg',
       videoUrl:
@@ -59,7 +59,7 @@ abstract final class DemoCatalog {
     Artist(
       id: miraId,
       name: 'Avskilta',
-      tagline: 'Duo',
+      tagline: 'Partymusikk',
       bio:
           'Først het de Rolffa feat. GM. Så kuttet de inn til beinet og ble R & GM. '
           'Nå har de mistet bokstavene helt og blitt Avskilta. '
@@ -76,7 +76,7 @@ abstract final class DemoCatalog {
     Artist(
       id: kevinId,
       name: 'Kevin Boine',
-      tagline: 'Solo',
+      tagline: 'Partymusikk',
       bio:
           'Med over 200 millioner streams, har Kevin Boine vokst seg til å bli en av Nord-Norges yndlinger. '
           'Den 32 år gamle artisten fra Tana har opparbeidet seg en lojal og stadig voksende fanskare, '
@@ -91,7 +91,7 @@ abstract final class DemoCatalog {
     Artist(
       id: henningId,
       name: 'Henning Anti',
-      tagline: 'Solo',
+      tagline: 'Klassisk rock',
       bio: 'Henning Anti bookes til klubber, kulturhus og festivaler.',
       imageUrl: 'assets/artist/henning_profile_1.jpeg',
       videoUrl:

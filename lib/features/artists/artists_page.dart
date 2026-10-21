@@ -171,7 +171,7 @@ class ArtistCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       artist.tagline,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: AppColors.muted,

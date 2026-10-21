@@ -110,7 +110,7 @@ values
   (
     'a1000000-0000-4000-8000-000000000004',
     'EiGA',
-    'Duo',
+    'Elektronisk, EDM, joik',
     $bio$EiGA er en samisk joike- og elektronika-duo som springer ut fra Máze i Sápmi. Duoen består av joikerne og artistene Johan Ivvar Gaup og Piera Eira. Sistnevnte vant sangdelen i Sámi Grand Prix i 2025 sammen med MÁIJÁ med låten «Dálkkiid Čađa».
 
 EiGA er kjent for å forene tradisjonell joik med moderne EDM- og elektronika-elementer, noe som skaper et unikt og energisk lydbilde som har fått stor oppmerksomhet på festivaler og arrangementer. Duoen har gitt ut utgivelser som låten «Duinna» (gjestet av Elin Oskal) og singelen «Muittašan» (gjestet av MÁIJÁ).
@@ -124,7 +124,7 @@ Eiga passer like godt til klubbscener som til store festivaler.$bio$,
   (
     'a1000000-0000-4000-8000-000000000002',
     'Felgen Orkester',
-    'Band',
+    'Folk rock',
     $bio$Felgen Orkester bookes til klubber, kulturhus og festivaler.$bio$,
     'assets/artist/felgen_profile_1.jpeg',
     'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',
@@ -134,7 +134,7 @@ Eiga passer like godt til klubbscener som til store festivaler.$bio$,
   (
     'a1000000-0000-4000-8000-000000000001',
     'Rolffa',
-    'Band',
+    'Partyjoik',
     $bio$Rolffa bookes til klubber, kulturhus og festivaler.$bio$,
     'assets/artist/rolffa_profile_1.jpg',
     'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',
@@ -144,7 +144,7 @@ Eiga passer like godt til klubbscener som til store festivaler.$bio$,
   (
     'a1000000-0000-4000-8000-000000000003',
     'Avskilta',
-    'Duo',
+    'Partymusikk',
     $bio$Først het de Rolffa feat. GM. Så kuttet de inn til beinet og ble R & GM. Nå har de mistet bokstavene helt og blitt Avskilta. Navneendringene skyldes ikke identitetskrise, men ren slitasje etter litt for mange mil på veien og litt for høy stemning i lokalet. Skiltene er kanskje inndratt og EU-kontrollen for lengst utløpt, men motoren går bedre enn noen gang. Avskilta er perfekt når du vil ha en partyduo uten bremser, med fullt trøkk og null skam på dansegulvet.$bio$,
     'assets/artist/Avskilta_full_rust.jpg',
     'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',
@@ -154,7 +154,7 @@ Eiga passer like godt til klubbscener som til store festivaler.$bio$,
   (
     'a1000000-0000-4000-8000-000000000007',
     'Kevin Boine',
-    'Solo',
+    'Partymusikk',
     $bio$Med over 200 millioner streams, har Kevin Boine vokst seg til å bli en av Nord-Norges yndlinger. Den 32 år gamle artisten fra Tana har opparbeidet seg en lojal og stadig voksende fanskare, og spiller festivaler over hele Skandinavia. Som en av svært få i sin sjanger krysser han landegrenser og forener folk med sin fengende og folkelige stil.$bio$,
     'assets/artist/kevin_profile_2.JPG',
     'assets/artist/movie/kevin_movie_1.mp4',
@@ -164,7 +164,7 @@ Eiga passer like godt til klubbscener som til store festivaler.$bio$,
   (
     'a1000000-0000-4000-8000-000000000008',
     'Henning Anti',
-    'Solo',
+    'Klassisk rock',
     $bio$Henning Anti bookes til klubber, kulturhus og festivaler.$bio$,
     'assets/artist/henning_profile_1.jpeg',
     'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',
