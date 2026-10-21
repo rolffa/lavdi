@@ -74,42 +74,35 @@ class PortalFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final path = GoRouterState.of(context).uri.path;
     final isHome = path == '/' || path.isEmpty;
+    final copyrightStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: AppColors.onImageMuted,
+    );
     final copyright = Text(
       'Amundsen Studio © 2026',
       textAlign: TextAlign.center,
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: AppColors.onImageMuted,
-      ),
+      style: copyrightStyle,
     );
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, isHome ? 20 : 8, 20, 16),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       child: isHome
-          ? SizedBox(
-              height: 88,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Positioned(
-                    bottom: 4,
-                    left: 0,
-                    right: 0,
-                    child: copyright,
-                  ),
-                  IgnorePointer(
-                    child: Opacity(
-                      opacity: 0.92,
-                      child: Image.asset(
-                        'assets/brand/Logo_Amundsen Studio_S_Square.png',
-                        height: 72,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.high,
-                        semanticLabel: 'Amundsen Studio',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          ? Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'assets/brand/Logo_Amundsen Studio_S_Square.png',
+                  height: 40,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  semanticLabel: 'Amundsen Studio',
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Amundsen Studio © 2026',
+                  style: copyrightStyle,
+                ),
+              ],
             )
           : copyright,
     );
