@@ -11,6 +11,7 @@ import '../core/errors.dart';
 import '../core/format.dart';
 import '../core/tono.dart';
 import '../data/demo_catalog.dart';
+import '../models/admin_notification.dart';
 import '../models/artist.dart';
 import '../models/artist_offer.dart';
 import '../models/artist_session.dart';
@@ -86,6 +87,38 @@ class SupabasePortalRepository extends PortalRepository {
         for (final row in result)
           if (row is Map) Artist.fromRow(Map<String, dynamic>.from(row)),
       ];
+    } on PostgrestException catch (error) {
+      throw _adminError(error);
+    }
+  }
+
+  @override
+  Future<List<AdminNotification>> fetchAdminNotifications() async {
+    final pin = _requireAdmin();
+    try {
+      final result = await _client.rpc(
+        'admin_list_notifications',
+        params: {'p_pin': pin},
+      );
+      if (result is! List) return const [];
+      return [
+        for (final row in result)
+          if (row is Map)
+            AdminNotification.fromJson(Map<String, dynamic>.from(row)),
+      ];
+    } on PostgrestException catch (error) {
+      throw _adminError(error);
+    }
+  }
+
+  @override
+  Future<void> dismissAdminNotification(String id) async {
+    final pin = _requireAdmin();
+    try {
+      await _client.rpc(
+        'admin_dismiss_notification',
+        params: {'p_pin': pin, 'p_id': id},
+      );
     } on PostgrestException catch (error) {
       throw _adminError(error);
     }

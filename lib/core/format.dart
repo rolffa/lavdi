@@ -57,6 +57,10 @@ String formatClock(TimeOfDay time) {
   return '$hour:$minute';
 }
 
+String formatDateTime(DateTime value) {
+  return DateFormat('d. MMM y, HH:mm', 'nb').format(value.toLocal());
+}
+
 TimeOfDay? parseClock(Object? value) {
   if (value is! String || value.trim().isEmpty) return null;
   final parts = value.trim().split(':');

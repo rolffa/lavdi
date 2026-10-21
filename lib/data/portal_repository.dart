@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../models/admin_notification.dart';
 import '../models/artist.dart';
 import '../models/artist_offer.dart';
 import '../models/artist_session.dart';
@@ -30,6 +31,11 @@ abstract class PortalRepository extends ChangeNotifier {
 
   /// All artists for admin tools, including unpublished.
   Future<List<Artist>> fetchAdminArtists();
+
+  /// Oppdateringer under Artister (invitasjon / aktivering).
+  Future<List<AdminNotification>> fetchAdminNotifications();
+
+  Future<void> dismissAdminNotification(String id);
 
   Future<void> setArtistPublished({
     required String artistId,

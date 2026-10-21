@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/config.dart';
 import '../../core/errors.dart';
+import '../../core/format.dart';
 import '../../core/portal_scope.dart';
 import '../../core/theme.dart';
+import '../../models/admin_notification.dart';
 import '../../models/artist.dart';
 import '../shell/portal_scaffold.dart';
 import 'admin_login.dart';
@@ -21,7 +23,9 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
   var _loading = false;
   Object? _error;
   List<Artist> _artists = const [];
+  List<AdminNotification> _notifications = const [];
   final Set<String> _saving = {};
+  final Set<String> _dismissing = {};
   String? _openingId;
   String? _status;
 
@@ -40,12 +44,19 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
       _error = null;
     });
     try {
-      final artists =
-          await PortalScope.of(context).repository.fetchAdminArtists();
+      final repository = PortalScope.of(context).repository;
+      final artists = await repository.fetchAdminArtists();
       artists.sort((a, b) => a.name.compareTo(b.name));
+      List<AdminNotification> notifications = const [];
+      try {
+        notifications = await repository.fetchAdminNotifications();
+      } catch (_) {
+        // Eldre DB uten logg-funksjon: vis fortsatt artistlista.
+      }
       if (!mounted) return;
       setState(() {
         _artists = artists;
+        _notifications = notifications;
         _loading = false;
       });
     } catch (error) {
@@ -54,6 +65,27 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
         _loading = false;
         _error = error;
       });
+    }
+  }
+
+  Future<void> _dismissNotification(AdminNotification note) async {
+    if (_dismissing.contains(note.id)) return;
+    setState(() {
+      _dismissing.add(note.id);
+      _notifications =
+          _notifications.where((item) => item.id != note.id).toList();
+    });
+    try {
+      await PortalScope.of(context).repository.dismissAdminNotification(note.id);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _notifications = [..._notifications, note]
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        _error = error;
+      });
+    } finally {
+      if (mounted) setState(() => _dismissing.remove(note.id));
     }
   }
 
@@ -165,10 +197,20 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
             'Invitasjon som ${invite.role} sendt til ${invite.email} for '
             '${artist.name}. Lenken er også kopiert.';
       });
+      await _reloadNotifications();
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error);
     }
+  }
+
+  Future<void> _reloadNotifications() async {
+    try {
+      final notifications =
+          await PortalScope.of(context).repository.fetchAdminNotifications();
+      if (!mounted) return;
+      setState(() => _notifications = notifications);
+    } catch (_) {}
   }
 
   @override
@@ -256,9 +298,122 @@ class _AdminArtistsPageState extends State<AdminArtistsPage> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 28),
+                  Text(
+                    'Oppdateringer',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: AppColors.onImage,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Invitasjoner og aktiveringer. Slett når du har lest dem.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.onImageMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DecoratedBox(
+                    decoration: const BoxDecoration(
+                      color: AppColors.surface,
+                      border: Border.fromBorderSide(
+                        BorderSide(color: AppColors.line),
+                      ),
+                    ),
+                    child: InkSurface(
+                      child: _notifications.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Text(
+                                'Ingen oppdateringer ennå.',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: AppColors.muted,
+                                ),
+                              ),
+                            )
+                          : Column(
+                              children: [
+                                for (var i = 0;
+                                    i < _notifications.length;
+                                    i++) ...[
+                                  if (i > 0)
+                                    const Divider(
+                                      height: 1,
+                                      color: AppColors.line,
+                                    ),
+                                  _NotificationRow(
+                                    note: _notifications[i],
+                                    busy: _dismissing.contains(
+                                      _notifications[i].id,
+                                    ),
+                                    onDismiss: () => _dismissNotification(
+                                      _notifications[i],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                    ),
+                  ),
                 ],
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationRow extends StatelessWidget {
+  const _NotificationRow({
+    required this.note,
+    required this.busy,
+    required this.onDismiss,
+  });
+
+  final AdminNotification note;
+  final bool busy;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  note.message,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  formatDateTime(note.createdAt),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Slett',
+            onPressed: busy ? null : onDismiss,
+            icon: busy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.close, size: 20),
           ),
         ],
       ),

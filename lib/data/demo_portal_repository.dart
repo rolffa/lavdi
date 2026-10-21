@@ -13,6 +13,7 @@ import '../core/format.dart';
 import '../core/push_config.dart';
 import '../core/push_logic.dart';
 import '../core/tono.dart';
+import '../models/admin_notification.dart';
 import '../models/artist.dart';
 import '../models/artist_offer.dart';
 import '../models/artist_session.dart';
@@ -76,6 +77,8 @@ class DemoPortalRepository extends PortalRepository {
     ),
   ];
   final List<BandInvite> _invites = [];
+  final List<AdminNotification> _adminNotifications = [];
+  var _notificationSequence = 1;
   StagePlot? _stagePlot;
   final Map<String, List<CrewLeg>> _crewByGig = {};
   final Map<String, ({String endpoint, String p256dh, String auth})> _pushByUser = {};
@@ -129,6 +132,66 @@ class DemoPortalRepository extends PortalRepository {
       for (final artist in DemoCatalog.artists)
         artist.copyWith(published: _published[artist.id] ?? true),
     ];
+  }
+
+  @override
+  Future<List<AdminNotification>> fetchAdminNotifications() async {
+    _requireAdmin();
+    final items = [..._adminNotifications]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return items;
+  }
+
+  @override
+  Future<void> dismissAdminNotification(String id) async {
+    _requireAdmin();
+    _adminNotifications.removeWhere((item) => item.id == id);
+  }
+
+  void _logInvitePending({
+    required String email,
+    required String artistId,
+    required String artistName,
+    required String inviteId,
+  }) {
+    final who = _notificationLabel(email);
+    _adminNotifications.insert(
+      0,
+      AdminNotification(
+        id: 'note-${_notificationSequence++}',
+        kind: 'invite_pending',
+        message: '$who er invitert til $artistName, venter på aktivering.',
+        artistId: artistId,
+        inviteId: inviteId,
+        createdAt: _clock(),
+      ),
+    );
+  }
+
+  void _logInviteActivated({
+    required String email,
+    required String artistId,
+    required String artistName,
+    required String inviteId,
+  }) {
+    final who = _notificationLabel(email);
+    _adminNotifications.insert(
+      0,
+      AdminNotification(
+        id: 'note-${_notificationSequence++}',
+        kind: 'invite_activated',
+        message: 'Profil er opprettet for $who ($artistName).',
+        artistId: artistId,
+        inviteId: inviteId,
+        createdAt: _clock(),
+      ),
+    );
+  }
+
+  String _notificationLabel(String email) {
+    final local = email.trim().toLowerCase().split('@').first;
+    if (local.isEmpty) return email;
+    return local[0].toUpperCase() + local.substring(1);
   }
 
   @override
@@ -447,6 +510,12 @@ class DemoPortalRepository extends PortalRepository {
     } else {
       _invites.add(invite);
     }
+    _logInvitePending(
+      email: address,
+      artistId: artistId,
+      artistName: artist.name,
+      inviteId: invite.id,
+    );
     return invite;
   }
 
@@ -975,6 +1044,18 @@ class DemoPortalRepository extends PortalRepository {
     } else {
       _invites.add(invite);
     }
+    final artistId = band.artistId;
+    if (artistId != null) {
+      final artist = _artist(artistId);
+      if (artist != null) {
+        _logInvitePending(
+          email: address,
+          artistId: artist.id,
+          artistName: artist.name,
+          inviteId: invite.id,
+        );
+      }
+    }
     await sendInviteEmail(invite.token);
     return invite;
   }
@@ -1056,8 +1137,18 @@ class DemoPortalRepository extends PortalRepository {
       token: invite.token,
       accepted: true,
     );
+    final artistId = _band!.artistId ?? '';
+    final artist = _artist(artistId);
+    if (artist != null) {
+      _logInviteActivated(
+        email: invite.email,
+        artistId: artist.id,
+        artistName: artist.name,
+        inviteId: invite.id,
+      );
+    }
     _session = ArtistSession(
-      artistId: _band!.artistId ?? _session?.artistId ?? '',
+      artistId: artistId,
       artistName: _band!.name,
       email: invite.email,
     );
