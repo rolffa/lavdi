@@ -130,6 +130,14 @@ class _BookingDialogState extends State<BookingDialog> {
           Text(widget.artist.name, style: theme.textTheme.titleMedium),
           const SizedBox(height: 2),
           Text(formatLongDate(widget.date), style: theme.textTheme.bodyMedium),
+          const SizedBox(height: 10),
+          Text(
+            'Konserten bookes eller bekreftes ikke før det er enighet om pris. '
+            'Kontrakt signeres først etter dette.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.muted,
+            ),
+          ),
           const SizedBox(height: 18),
           TextFormField(
             controller: _organizer,
