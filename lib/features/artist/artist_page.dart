@@ -334,9 +334,7 @@ class _VideoBanner extends StatelessWidget {
                     )
                   : buildVideoEmbed(
                       url: artist.videoUrl,
-                      poster: artist.imageUrl.startsWith('http')
-                          ? artist.imageUrl
-                          : '',
+                      poster: artist.imageUrl,
                     ),
             ),
           ),

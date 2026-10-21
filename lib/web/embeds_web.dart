@@ -1,14 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
+/// Resolve Flutter asset paths for HTML media elements on web.
+String resolveMediaUrl(String url) {
+  final trimmed = url.trim();
+  if (trimmed.isEmpty) return trimmed;
+  if (trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('blob:') ||
+      trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  // Project asset like assets/artist/foo.mp4 → /assets/assets/artist/foo.mp4
+  final path = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
+  return 'assets/$path';
+}
+
 Widget buildVideoEmbed({required String url, required String poster}) {
+  final src = resolveMediaUrl(url);
+  final posterUrl = resolveMediaUrl(poster);
   return HtmlElementView.fromTagName(
     tagName: 'video',
     onElementCreated: (element) {
       final video = element as web.HTMLVideoElement;
       video
-        ..src = url
-        ..poster = poster
+        ..src = src
+        ..poster = posterUrl
         ..autoplay = true
         ..muted = true
         ..loop = true

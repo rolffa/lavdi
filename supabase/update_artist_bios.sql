@@ -20,7 +20,7 @@ set bio = 'Avskilta er en duo som bookes til klubber, kulturhus og festivaler.'
 where navn in ('Avskilta', 'R & GM');
 
 update public.artists
-set bio = 'Kevin Boine bookes til klubber, kulturhus og festivaler.'
+set bio = $bio$Med over 200 millioner streams, har Kevin Boine vokst seg til å bli en av Nord-Norges yndlinger. Den 32 år gamle artisten fra Tana har opparbeidet seg en lojal og stadig voksende fanskare, og spiller festivaler over hele Skandinavia. Som en av svært få i sin sjanger krysser han landegrenser og forener folk med sin fengende og folkelige stil.$bio$
 where navn = 'Kevin Boine';
 
 update public.artists

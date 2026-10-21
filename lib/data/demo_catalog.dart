@@ -71,10 +71,14 @@ abstract final class DemoCatalog {
       id: kevinId,
       name: 'Kevin Boine',
       tagline: 'Solo',
-      bio: 'Kevin Boine bookes til klubber, kulturhus og festivaler.',
-      imageUrl: 'assets/artist/kevin_profile_1.jpeg',
-      videoUrl:
-          'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',
+      bio:
+          'Med over 200 millioner streams, har Kevin Boine vokst seg til å bli en av Nord-Norges yndlinger. '
+          'Den 32 år gamle artisten fra Tana har opparbeidet seg en lojal og stadig voksende fanskare, '
+          'og spiller festivaler over hele Skandinavia. '
+          'Som en av svært få i sin sjanger krysser han landegrenser og forener folk med '
+          'sin fengende og folkelige stil.',
+      imageUrl: 'assets/artist/kevin_profile_2.JPG',
+      videoUrl: 'assets/artist/movie/kevin_movie_1.mp4',
       spotifyUri: 'spotify:artist:7vjysb7HY9cLyDyHCMEtZu',
       minPrice: 75000,
     ),

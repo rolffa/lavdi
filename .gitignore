@@ -56,3 +56,6 @@ app.*.map.json
 !.env.example
 supabase/.vapid.env
 
+# Raw artist video masters (web uses compressed .mp4)
+assets/artist/movie/*.mov
+
