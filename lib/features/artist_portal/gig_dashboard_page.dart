@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../core/errors.dart';
@@ -8,6 +10,7 @@ import '../../core/theme.dart';
 import '../../models/gig.dart';
 import '../../models/production_plan.dart';
 import '../../web/external_link.dart';
+import '../../web/rider_files.dart';
 import '../shell/portal_scaffold.dart';
 import 'member_travel_section.dart';
 import 'portal_widgets.dart';
@@ -26,6 +29,8 @@ class _GigDashboardPageState extends State<GigDashboardPage> {
   Gig? _gig;
   Object? _error;
   var _loading = true;
+  var _contractBusy = false;
+  String? _contractError;
 
   @override
   void initState() {
@@ -40,6 +45,7 @@ class _GigDashboardPageState extends State<GigDashboardPage> {
     setState(() {
       _loading = true;
       _error = null;
+      _contractError = null;
     });
     try {
       final session = await repository.currentArtist();
@@ -63,6 +69,35 @@ class _GigDashboardPageState extends State<GigDashboardPage> {
         _error = error;
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _downloadContract() async {
+    final gig = _gig;
+    if (gig == null) return;
+    setState(() {
+      _contractBusy = true;
+      _contractError = null;
+    });
+    try {
+      final bytes = await PortalScope.of(context)
+          .repository
+          .downloadContractPdfForGig(gig.id);
+      if (!mounted) return;
+      final stamp = formatIsoDate(gig.date);
+      final safeArtist = gig.artistName.trim().isEmpty
+          ? 'artist'
+          : gig.artistName.trim().replaceAll(RegExp(r'[^\w\-]+'), '_');
+      saveBytes(
+        Uint8List.fromList(bytes),
+        'kontrakt-$safeArtist-$stamp.pdf',
+        'application/pdf',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _contractError = readableError(error));
+    } finally {
+      if (mounted) setState(() => _contractBusy = false);
     }
   }
 
@@ -101,6 +136,35 @@ class _GigDashboardPageState extends State<GigDashboardPage> {
         if (gig.organizer.venueCity.trim().isNotEmpty &&
             gig.organizer.venueCity.trim() != title)
           Text(gig.organizer.venueCity),
+        const SizedBox(height: 20),
+        ArtistSection(
+          title: 'Kontrakt',
+          child: ArtistCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Konsertkontrakt generert fra forespørselen. '
+                  'Last ned for manuell signering.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.ink,
+                  ),
+                ),
+                if (_contractError != null) ...[
+                  const SizedBox(height: 8),
+                  FieldError(_contractError!),
+                ],
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: _contractBusy ? null : _downloadContract,
+                  child: Text(
+                    _contractBusy ? 'Henter…' : 'Last ned kontrakt (PDF)',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 28),
         VenueNotesSection(
           venueLabel: gig.organizer.venueCity,

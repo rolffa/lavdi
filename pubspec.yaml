@@ -30,6 +30,7 @@ flutter:
     - assets/brand/Bakgrunn3.jpeg
     - assets/artist/
     - assets/artist/movie/
+    - assets/contracts/
   fonts:
     - family: Grooby
       fonts:

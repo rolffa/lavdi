@@ -273,6 +273,9 @@ abstract class PortalRepository extends ChangeNotifier {
     String comment = '',
   });
 
+  /// Generates (or regenerates) the concert contract PDF for a gig and returns bytes.
+  Future<Uint8List> downloadContractPdfForGig(String gigId);
+
   Future<void> undoOfferDecline(String offerId);
 
   Future<List<ArtistOffer>> fetchDeclinedOffers();

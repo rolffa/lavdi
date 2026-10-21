@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../core/artist_slug.dart';
 import '../core/calendar_logic.dart';
+import '../core/contract_pdf.dart';
 import '../core/deal_logic.dart';
 import '../core/errors.dart';
 import '../core/format.dart';
@@ -1183,6 +1184,37 @@ class DemoPortalRepository extends PortalRepository {
       throw PortalException('Datoen er allerede booket');
     }
     _deals[index] = deal.copyWith(status: DealStatus.accepted);
+    // Demo: kontrakt genereres ved nedlasting fra gig.
+  }
+
+  @override
+  Future<Uint8List> downloadContractPdfForGig(String gigId) async {
+    _requireSession();
+    final gig = _ownGig(gigId);
+    final deal = _deals.cast<BookingDeal?>().firstWhere(
+      (item) => item?.gigId == gigId || item?.id == gig.bookingId,
+      orElse: () => null,
+    );
+    final payload = ContractPayload(
+      bookingId: gig.bookingId,
+      artistName: gig.artistName.isEmpty ? _session!.artistName : gig.artistName,
+      date: gig.date,
+      venue: gig.organizer.venueCity,
+      organization: gig.organizer.organization,
+      organizerName: gig.organizer.name,
+      contactPerson: gig.organizer.contactPerson,
+      email: gig.organizer.email,
+      phone: gig.organizer.phone,
+      fee: deal?.fee,
+      soundcheck: gig.production.soundcheck == null
+          ? ''
+          : formatClock(gig.production.soundcheck!),
+      showStart: gig.production.showStart == null
+          ? ''
+          : formatClock(gig.production.showStart!),
+      crewNote: '',
+    );
+    return Uint8List.fromList(await buildContractPdf(payload));
   }
 
   @override

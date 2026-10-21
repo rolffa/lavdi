@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/artist_slug.dart';
 import '../core/config.dart';
+import '../core/contract_pdf.dart';
 import '../core/errors.dart';
 import '../core/format.dart';
 import '../core/tono.dart';
@@ -1716,6 +1717,76 @@ class SupabasePortalRepository extends PortalRepository {
         'p_offer_id': offerId,
         'p_approve': approve,
         'p_comment': comment.trim(),
+      },
+    );
+    if (approve) {
+      try {
+        await _generateAndStoreContractForOffer(offerId);
+      } catch (_) {
+        // Godkjenning skal ikke feile om PDF/lagring feiler.
+      }
+    }
+  }
+
+  @override
+  Future<Uint8List> downloadContractPdfForGig(String gigId) async {
+    await _requireArtist();
+    final result = await _client.rpc(
+      'contract_payload_for_gig',
+      params: {'p_gig_id': gigId},
+    );
+    if (result is! Map) {
+      throw PortalException('Kontrakten er ikke tilgjengelig for denne konserten.');
+    }
+    final payload = ContractPayload.fromJson(Map<String, dynamic>.from(result));
+    final path = (result['contract_path'] as String?)?.trim() ?? '';
+    if (path.isNotEmpty) {
+      try {
+        return await _client.storage.from('contracts').download(path);
+      } catch (_) {
+        // Regenerer hvis lagret fil mangler.
+      }
+    }
+    final bytes = await buildContractPdf(payload);
+    final stored = Uint8List.fromList(bytes);
+    try {
+      await _storeContractPdf(payload: payload, bytes: stored);
+    } catch (_) {}
+    return stored;
+  }
+
+  Future<void> _generateAndStoreContractForOffer(String offerId) async {
+    final result = await _client.rpc(
+      'contract_payload_for_offer',
+      params: {'p_offer_id': offerId},
+    );
+    if (result is! Map) return;
+    final payload = ContractPayload.fromJson(Map<String, dynamic>.from(result));
+    if (payload.bookingId.isEmpty) return;
+    final bytes = Uint8List.fromList(await buildContractPdf(payload));
+    await _storeContractPdf(payload: payload, bytes: bytes);
+  }
+
+  Future<void> _storeContractPdf({
+    required ContractPayload payload,
+    required Uint8List bytes,
+  }) async {
+    final artist = await currentArtist();
+    if (artist == null || payload.bookingId.isEmpty) return;
+    final path = '${artist.artistId}/${payload.bookingId}.pdf';
+    await _client.storage.from('contracts').uploadBinary(
+      path,
+      bytes,
+      fileOptions: const FileOptions(
+        contentType: 'application/pdf',
+        upsert: true,
+      ),
+    );
+    await _client.rpc(
+      'set_booking_contract_path',
+      params: {
+        'p_booking_id': payload.bookingId,
+        'p_path': path,
       },
     );
   }
