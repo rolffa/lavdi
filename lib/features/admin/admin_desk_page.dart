@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/artist_slug.dart';
+import '../../core/bandsintown_csv.dart';
 import '../../core/config.dart';
 import '../../core/deal_logic.dart';
 import '../../core/errors.dart';
@@ -237,6 +238,15 @@ class _DealCardState extends State<_DealCard> {
     saveBytes(Uint8List.fromList(bytes), 'reise-${deal.artistName}.pdf', 'application/pdf');
   }
 
+  void _downloadBandsintownCsv() {
+    final deal = widget.deal;
+    saveBytes(
+      buildBandsintownCsvBytes(deal),
+      bandsintownCsvFilename(deal),
+      'text/csv;charset=utf-8',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final deal = widget.deal;
@@ -382,7 +392,16 @@ class _DealCardState extends State<_DealCard> {
                 : 'Pressepakke er ikke klar.',
           ),
           Text('$origin/artister/$slug/presse'),
+          const SizedBox(height: 12),
+          const Text(
+            'Bandsintown-CSV for import (etter signert og bekreftet kontrakt).',
+          ),
           const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: _downloadBandsintownCsv,
+            child: const Text('Last ned Bandsintown-CSV'),
+          ),
+          const SizedBox(height: 12),
           const Text('Først: arrangør fyller reiseinfo (flyplass, avstand, mer info)'),
           SelectableText('$origin/arrangor/reise/${deal.travelToken}'),
           const SizedBox(height: 8),
