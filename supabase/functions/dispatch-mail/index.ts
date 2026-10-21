@@ -43,6 +43,18 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  // Kølegg dagskjema-påminnelser (idempotent) før utsending.
+  {
+    const { error: enqueueError } = await supabase.rpc(
+      "enqueue_day_sheet_reminders",
+    );
+    if (enqueueError) {
+      // Eldre DB uten funksjonen: fortsett med vanlig utsending.
+      console.warn("enqueue_day_sheet_reminders:", enqueueError.message);
+    }
+  }
+
   const { data, error } = await supabase
     .from("mail_outbox")
     .select("id, to_email, subject, body, url")
