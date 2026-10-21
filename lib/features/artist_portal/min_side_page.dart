@@ -35,6 +35,7 @@ class _MinSidePageState extends State<MinSidePage> {
   String? _offerError;
   Object? _error;
   var _loading = true;
+  var _passwordRecovery = false;
   GoRouter? _router;
 
   @override
@@ -76,10 +77,23 @@ class _MinSidePageState extends State<MinSidePage> {
     try {
       final session = await repository.currentArtist();
       if (!mounted) return;
+      if (repository.passwordRecoveryPending &&
+          repository.currentAuthEmail() != null) {
+        setState(() {
+          _session = session;
+          _passwordRecovery = true;
+          _loading = false;
+        });
+        return;
+      }
+      if (repository.passwordRecoveryPending) {
+        repository.clearPasswordRecoveryPending();
+      }
       if (session == null) {
         setState(() {
           _session = null;
           _band = null;
+          _passwordRecovery = false;
           _loading = false;
         });
         return;
@@ -110,6 +124,7 @@ class _MinSidePageState extends State<MinSidePage> {
         _busyNotices = busyNotices;
         _reportGigId = reportId;
         _offerBusy = null;
+        _passwordRecovery = false;
         _loading = false;
       });
     } catch (error) {
@@ -202,7 +217,16 @@ class _MinSidePageState extends State<MinSidePage> {
           ? ErrorRetry(message: readableError(_error!), onRetry: _load)
           : ListView(
               children: [
-                if (_session == null)
+                if (_passwordRecovery)
+                  _ResetPasswordPanel(
+                    onDone: () async {
+                      PortalScope.of(context)
+                          .repository
+                          .clearPasswordRecoveryPending();
+                      await _load();
+                    },
+                  )
+                else if (_session == null)
                   _LoginPanel(onSignedIn: _load)
                 else
                   _Home(
@@ -238,6 +262,7 @@ class _LoginPanelState extends State<_LoginPanel> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   var _busy = false;
+  var _forgot = false;
   String? _message;
   var _messageIsError = true;
 
@@ -254,6 +279,21 @@ class _LoginPanelState extends State<_LoginPanel> {
       await PortalScope.of(context).repository
           .signInArtist(email: _email.text, password: _password.text);
       await widget.onSignedIn();
+    });
+  }
+
+  Future<void> _sendReset() async {
+    if (_formKey.currentState?.validate() != true) return;
+    await _run(() async {
+      await PortalScope.of(context)
+          .repository
+          .requestPasswordReset(_email.text);
+      if (!mounted) return;
+      setState(() {
+        _message =
+            'Hvis kontoen finnes, har vi sendt en lenke for å nullstille passordet. Sjekk e-posten.';
+        _messageIsError = false;
+      });
     });
   }
 
@@ -287,14 +327,16 @@ class _LoginPanelState extends State<_LoginPanel> {
             Text('ARTIST', style: theme.textTheme.labelMedium),
             const SizedBox(height: 8),
             Text(
-              'Min side',
+              _forgot ? 'Glemt passord' : 'Min side',
               style: theme.textTheme.displaySmall?.copyWith(
                 color: AppColors.onImage,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Kjøreplan, reise og settliste for dine konserter.',
+              _forgot
+                  ? 'Oppgi e-posten din, så sender vi en lenke for å velge nytt passord.'
+                  : 'Kjøreplan, reise og settliste for dine konserter.',
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: AppColors.onImageMuted,
               ),
@@ -305,6 +347,7 @@ class _LoginPanelState extends State<_LoginPanel> {
               label: 'E-post',
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email],
+              onFieldSubmitted: _forgot ? (_) => _sendReset() : null,
               validator: (value) {
                 if (value == null || !value.contains('@')) {
                   return 'Oppgi e-post';
@@ -312,16 +355,18 @@ class _LoginPanelState extends State<_LoginPanel> {
                 return null;
               },
             ),
-            const SizedBox(height: 12),
-            PortalTextFormField(
-              controller: _password,
-              label: 'Passord',
-              obscureText: true,
-              autofillHints: const [AutofillHints.password],
-              onFieldSubmitted: (_) => _signIn(),
-              validator: (value) =>
-                  value == null || value.length < 4 ? 'Oppgi passord' : null,
-            ),
+            if (!_forgot) ...[
+              const SizedBox(height: 12),
+              PortalTextFormField(
+                controller: _password,
+                label: 'Passord',
+                obscureText: true,
+                autofillHints: const [AutofillHints.password],
+                onFieldSubmitted: (_) => _signIn(),
+                validator: (value) =>
+                    value == null || value.length < 4 ? 'Oppgi passord' : null,
+              ),
+            ],
             if (_message != null) ...[
               const SizedBox(height: 12),
               if (_messageIsError)
@@ -338,8 +383,152 @@ class _LoginPanelState extends State<_LoginPanel> {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: _busy ? null : _signIn,
-                child: Text(_busy ? 'Logger inn…' : 'Logg inn'),
+                onPressed: _busy
+                    ? null
+                    : (_forgot ? _sendReset : _signIn),
+                child: Text(
+                  _busy
+                      ? (_forgot ? 'Sender…' : 'Logger inn…')
+                      : (_forgot ? 'Send nullstillingslenke' : 'Logg inn'),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: _busy
+                    ? null
+                    : () => setState(() {
+                          _forgot = !_forgot;
+                          _message = null;
+                        }),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.onImage,
+                  padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                ),
+                child: Text(
+                  _forgot ? 'Tilbake til innlogging' : 'Glemt passord?',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onImage,
+                    decoration: TextDecoration.underline,
+                    decorationColor: AppColors.onImageMuted,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ResetPasswordPanel extends StatefulWidget {
+  const _ResetPasswordPanel({required this.onDone});
+
+  final Future<void> Function() onDone;
+
+  @override
+  State<_ResetPasswordPanel> createState() => _ResetPasswordPanelState();
+}
+
+class _ResetPasswordPanelState extends State<_ResetPasswordPanel> {
+  final _formKey = GlobalKey<FormState>();
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+  var _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_formKey.currentState?.validate() != true) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await PortalScope.of(context)
+          .repository
+          .setArtistPassword(_password.text);
+      if (!mounted) return;
+      await widget.onDone();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = readableError(error);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ArtistFrame(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('ARTIST', style: theme.textTheme.labelMedium),
+            const SizedBox(height: 8),
+            Text(
+              'Velg nytt passord',
+              style: theme.textTheme.displaySmall?.copyWith(
+                color: AppColors.onImage,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Lenken bekreftet e-posten din. Velg et nytt passord for Min side.',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: AppColors.onImageMuted,
+              ),
+            ),
+            const SizedBox(height: 24),
+            PortalTextFormField(
+              controller: _password,
+              label: 'Nytt passord',
+              obscureText: true,
+              autofillHints: const <String>[],
+              validator: (value) {
+                if (value == null || value.trim().length < 6) {
+                  return 'Passordet må være minst 6 tegn';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            PortalTextFormField(
+              controller: _confirm,
+              label: 'Bekreft passord',
+              obscureText: true,
+              autofillHints: const <String>[],
+              onFieldSubmitted: (_) => _save(),
+              validator: (value) {
+                if (value != _password.text) {
+                  return 'Passordene er ikke like';
+                }
+                return null;
+              },
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              FieldError(_error!),
+            ],
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _busy ? null : _save,
+                child: Text(_busy ? 'Lagrer…' : 'Lagre passord'),
               ),
             ),
           ],

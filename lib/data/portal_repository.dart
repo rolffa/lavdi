@@ -129,6 +129,14 @@ abstract class PortalRepository extends ChangeNotifier {
   /// Sends a one-time login / reset link to the given email.
   Future<void> adminSendPasswordReset(String email);
 
+  /// Public «glemt passord» — sender nullstillingslenke uten admin.
+  Future<void> requestPasswordReset(String email);
+
+  /// True after opening a recovery link until the user sets a new password.
+  bool get passwordRecoveryPending;
+
+  void clearPasswordRecoveryPending();
+
   Future<void> setAvailability({
     required String artistId,
     required DateTime date,

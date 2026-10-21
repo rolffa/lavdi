@@ -30,11 +30,22 @@ import '../models/venue_note.dart';
 import 'portal_repository.dart';
 
 class SupabasePortalRepository extends PortalRepository {
-  SupabasePortalRepository(this._client);
+  SupabasePortalRepository(this._client) {
+    if (_urlIndicatesPasswordRecovery(Uri.base)) {
+      _passwordRecoveryPending = true;
+    }
+    _authSub = _client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        _passwordRecoveryPending = true;
+      }
+    });
+  }
 
   final SupabaseClient _client;
   final StreamController<PushNotice> _pushNotices = StreamController<PushNotice>.broadcast();
+  StreamSubscription<AuthState>? _authSub;
   ArtistSession? _adminViewAsArtist;
+  var _passwordRecoveryPending = false;
 
   static const _artistColumns =
       'id, navn, tagline, bio, bilde_url, video_url, spotify_uri, minstepris, publisert';
@@ -604,27 +615,41 @@ class SupabasePortalRepository extends PortalRepository {
   @override
   Future<void> adminSendPasswordReset(String email) async {
     _requireAdmin();
+    await requestPasswordReset(email);
+  }
+
+  @override
+  Future<void> requestPasswordReset(String email) async {
     final address = email.trim();
     if (!address.contains('@')) {
       throw PortalException('Oppgi en gyldig e-postadresse.');
     }
+    final redirectTo = '${AppConfig.environment.publicSiteUrl}/min-side';
     try {
       await _client.auth.resetPasswordForEmail(
         address,
-        redirectTo: '${AppConfig.environment.publicSiteUrl}/min-side',
+        redirectTo: redirectTo,
       );
     } on AuthException {
       // Fall back to OTP magic link if recovery is not configured.
       try {
         await _client.auth.signInWithOtp(
           email: address,
-          emailRedirectTo: '${AppConfig.environment.publicSiteUrl}/min-side',
+          emailRedirectTo: redirectTo,
           shouldCreateUser: false,
         );
       } on AuthException {
-        throw PortalException('Kunne ikke sende engangskode.');
+        throw PortalException('Kunne ikke sende nullstillingslenke.');
       }
     }
+  }
+
+  @override
+  bool get passwordRecoveryPending => _passwordRecoveryPending;
+
+  @override
+  void clearPasswordRecoveryPending() {
+    _passwordRecoveryPending = false;
   }
 
   String _requireAdmin() {
@@ -692,6 +717,7 @@ class SupabasePortalRepository extends PortalRepository {
     if (_adminViewAsArtist != null && _adminSignedIn) {
       return _adminViewAsArtist;
     }
+    await _recoverAuthSessionFromUrl();
     if (_client.auth.currentSession == null) return null;
     final session = await _loadArtist();
     // Stale admin_artist_view etter refresh/utlogging → ikke auto-innlogging.
@@ -1517,6 +1543,9 @@ class SupabasePortalRepository extends PortalRepository {
 
   Future<void> _recoverAuthSessionFromUrl() async {
     final uri = Uri.base;
+    if (_urlIndicatesPasswordRecovery(uri)) {
+      _passwordRecoveryPending = true;
+    }
     final tokenHash = uri.queryParameters['token_hash'];
     final typeName = uri.queryParameters['type'];
     if (tokenHash != null &&
@@ -1530,6 +1559,9 @@ class SupabasePortalRepository extends PortalRepository {
             tokenHash: tokenHash,
             type: otpType,
           );
+          if (otpType == OtpType.recovery) {
+            _passwordRecoveryPending = true;
+          }
           return;
         } catch (_) {
           // Fall through to getSessionFromUrl.
@@ -1544,13 +1576,22 @@ class SupabasePortalRepository extends PortalRepository {
         typeName == 'signup' ||
         typeName == 'magiclink' ||
         typeName == 'invite' ||
-        typeName == 'email';
+        typeName == 'email' ||
+        typeName == 'recovery';
     if (!hasCode && !hasToken) return;
     try {
       await _client.auth.getSessionFromUrl(uri);
     } catch (_) {
       // Sesjon kan allerede være hentet av Supabase.initialize.
     }
+  }
+
+  static bool _urlIndicatesPasswordRecovery(Uri uri) {
+    final type = uri.queryParameters['type']?.toLowerCase();
+    if (type == 'recovery') return true;
+    final fragment = uri.fragment;
+    if (fragment.isEmpty) return false;
+    return fragment.contains('type=recovery');
   }
 
   OtpType? _otpTypeFromName(String name) {

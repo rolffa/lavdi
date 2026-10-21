@@ -8,7 +8,9 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const resendApiKey = Deno.env.get("RESEND_API_KEY") ?? "";
 const mailFrom =
-  Deno.env.get("MAIL_FROM") ?? "Lávdi Booking <post@amundsenstudio.no>";
+  Deno.env.get("MAIL_FROM") ??
+  Deno.env.get("INVITE_FROM_EMAIL") ??
+  "Lávdi Booking <noreply@lavdi.no>";
 const dispatchSecret = Deno.env.get("MAIL_DISPATCH_SECRET") ?? "";
 
 type OutboxRow = {

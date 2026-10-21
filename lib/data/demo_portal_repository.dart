@@ -461,12 +461,23 @@ class DemoPortalRepository extends PortalRepository {
   @override
   Future<void> adminSendPasswordReset(String email) async {
     _requireAdmin();
+    await requestPasswordReset(email);
+  }
+
+  @override
+  Future<void> requestPasswordReset(String email) async {
     final address = email.trim().toLowerCase();
     if (!address.contains('@')) {
       throw PortalException('Oppgi en gyldig e-postadresse.');
     }
     // Demo: ingen mailserver – lagres bare som vellykket handling.
   }
+
+  @override
+  bool get passwordRecoveryPending => false;
+
+  @override
+  void clearPasswordRecoveryPending() {}
 
   void _requireAdmin() {
     if (_adminSecret == null) {
