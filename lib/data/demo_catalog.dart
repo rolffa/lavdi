@@ -60,7 +60,13 @@ abstract final class DemoCatalog {
       id: miraId,
       name: 'Avskilta',
       tagline: 'Duo',
-      bio: 'Avskilta er en duo som bookes til klubber, kulturhus og festivaler.',
+      bio:
+          'Først het de Rolffa feat. GM. Så kuttet de inn til beinet og ble R & GM. '
+          'Nå har de mistet bokstavene helt og blitt Avskilta. '
+          'Navneendringene skyldes ikke identitetskrise, men ren slitasje etter litt for mange mil på veien '
+          'og litt for høy stemning i lokalet. '
+          'Skiltene er kanskje inndratt og EU-kontrollen for lengst utløpt, men motoren går bedre enn noen gang. '
+          'Avskilta er perfekt når du vil ha en partyduo uten bremser, med fullt trøkk og null skam på dansegulvet.',
       imageUrl: 'assets/artist/Avskilta_full_rust.jpg',
       videoUrl:
           'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',
