@@ -200,9 +200,18 @@ class ArtistPhoto extends StatelessWidget {
   final Artist artist;
   final double aspectRatio;
 
+  /// Avskilta har ansiktene øverst i et kvadratisk bilde; midt-crop kuttes i hodet.
+  Alignment get _alignment {
+    final key = '${artist.name} ${artist.imageUrl}'.toLowerCase();
+    if (key.contains('avskilta')) {
+      return const Alignment(0, -0.55);
+    }
+    return Alignment.center;
+  }
+
   @override
   Widget build(BuildContext context) {
-    const alignment = Alignment.center;
+    final alignment = _alignment;
     return AspectRatio(
       aspectRatio: aspectRatio,
       child: artist.imageUrl.startsWith('assets/')
