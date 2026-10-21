@@ -143,10 +143,10 @@ Eiga passer like godt til klubbscener som til store festivaler.$bio$,
   ),
   (
     'a1000000-0000-4000-8000-000000000003',
-    'R & GM',
+    'Avskilta',
     'Duo',
-    $bio$R & GM er en duo som bookes til klubber, kulturhus og festivaler.$bio$,
-    'assets/artist/roggm_profile_1.jpeg',
+    $bio$Avskilta er en duo som bookes til klubber, kulturhus og festivaler.$bio$,
+    'assets/artist/Avskilta_full_rust.jpg',
     'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',
     'spotify:artist:7F8ZcsMcpKLO4U7J4pqkpy',
     55000

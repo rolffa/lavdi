@@ -202,9 +202,7 @@ class ArtistPhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final alignment = artist.imageUrl.endsWith('roggm_profile_1.jpeg')
-        ? Alignment.topCenter
-        : Alignment.center;
+    const alignment = Alignment.center;
     return AspectRatio(
       aspectRatio: aspectRatio,
       child: artist.imageUrl.startsWith('assets/')

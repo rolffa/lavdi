@@ -58,10 +58,10 @@ abstract final class DemoCatalog {
     ),
     Artist(
       id: miraId,
-      name: 'R & GM',
+      name: 'Avskilta',
       tagline: 'Duo',
-      bio: 'R & GM er en duo som bookes til klubber, kulturhus og festivaler.',
-      imageUrl: 'assets/artist/roggm_profile_1.jpeg',
+      bio: 'Avskilta er en duo som bookes til klubber, kulturhus og festivaler.',
+      imageUrl: 'assets/artist/Avskilta_full_rust.jpg',
       videoUrl:
           'https://videos.pexels.com/video-files/2022395/2022395-hd_1280_720_30fps.mp4',
       spotifyUri: 'spotify:artist:7F8ZcsMcpKLO4U7J4pqkpy',

@@ -16,8 +16,8 @@ set bio = 'Rolffa bookes til klubber, kulturhus og festivaler.'
 where navn = 'Rolffa';
 
 update public.artists
-set bio = 'R & GM er en duo som bookes til klubber, kulturhus og festivaler.'
-where navn = 'R & GM';
+set bio = 'Avskilta er en duo som bookes til klubber, kulturhus og festivaler.'
+where navn in ('Avskilta', 'R & GM');
 
 update public.artists
 set bio = 'Kevin Boine bookes til klubber, kulturhus og festivaler.'
